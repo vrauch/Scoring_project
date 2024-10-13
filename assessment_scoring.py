@@ -158,7 +158,7 @@ for row in rows:
     doc.add_page_break()
 
 # Define the file path for the Word document
-output_file_path = os.path.join(os.getcwd(), 'analysis_results.docx')
+output_file_path = os.path.join(os.getcwd(), 'output/analysis_results.docx')
 
 # Save the Word document once, after all processing
 doc.save(output_file_path)

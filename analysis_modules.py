@@ -22,10 +22,10 @@ def load_from_db():
                         C.capability_name AS Capability,
                         Q.Level as Level,
                         MAX(CASE WHEN Q.Level = 1 THEN A.openended_answer END) AS Assessment,
-                        MAX(CASE WHEN CD.cap_level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
-                        MAX(CASE WHEN CD.cap_level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
+                        MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
+                        MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
                     FROM
-                        tb_question Q
+                        Questions Q
                     INNER JOIN
                         Capabilities C ON Q.capability_id = C.capability_id
                     INNER JOIN

@@ -47,7 +47,7 @@ try:
 
             # Check if there is already a binary and open-ended question for this `capability_id` and `level`
             check_query = """
-                       SELECT 1 FROM tb_question WHERE capability_id = %s AND Level = %s
+                       SELECT 1 FROM Questions WHERE capability_id = %s AND Level = %s
                        """
             cursor.execute(check_query, (capability_id, level))
             existing_record = cursor.fetchone()
@@ -82,7 +82,7 @@ try:
 
             # Insert the processed data into the tb_question table
             insert_query = """
-            INSERT INTO tb_question (capability_id, Level, `Binary`, OpenEnded) 
+            INSERT INTO Questions (capability_id, Level, `Binary`, open_ended) 
             VALUES (%s, %s, %s, %s)
             """
             cursor.execute(insert_query, data)
