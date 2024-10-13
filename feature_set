@@ -1,0 +1,311 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 86,
+   "id": "1af893ad73a712aa",
+   "metadata": {
+    "collapsed": false,
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:07.187448Z",
+     "start_time": "2024-03-18T21:58:07.184463Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "import openai\n",
+    "import os\n",
+    "import openpyxl\n",
+    "import re"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "outputs": [],
+   "source": [
+    "# Set your OpenAI API key\n",
+    "openai.api_key = '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'"
+   ],
+   "metadata": {
+    "scrolled": false,
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:07.756890Z",
+     "start_time": "2024-03-18T21:58:07.755024Z"
+    }
+   },
+   "id": "c6476712",
+   "execution_count": 87
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 88,
+   "id": "9561557a",
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:08.272431Z",
+     "start_time": "2024-03-18T21:58:08.270216Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "os.chdir('/Users/vrauch/Documents/GitHub/Scoring_project')  # Change to your own path"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 89,
+   "id": "e828b3d2",
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:08.899912Z",
+     "start_time": "2024-03-18T21:58:08.891042Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "wb = openpyxl.load_workbook('feature_set.xlsx', data_only=True)     # Open Excel file\n",
+    "features = 'features'\n",
+    "s1 = wb[features]        # Get the worksheet content"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 90,
+   "id": "3808356683f45f86",
+   "metadata": {
+    "collapsed": false,
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:09.522676Z",
+     "start_time": "2024-03-18T21:58:09.519524Z"
+    }
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications'], ['Applications']]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Store all domains in an array\n",
+    "s1_domain_read = s1.iter_rows(max_col=1)\n",
+    "domain_read = []\n",
+    "for row in s1_domain_read:\n",
+    "    tmp = []\n",
+    "    for column in row:\n",
+    "        tmp.append(column.value)\n",
+    "    domain_read.append(tmp)\n",
+    "print(domain_read)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[['App Portfolio Management'], ['App Portfolio Management'], ['App Portfolio Management'], ['App Portfolio Management'], ['App Portfolio Management'], ['App Rationalization'], ['App Rationalization'], ['App Rationalization'], ['App Rationalization'], ['App Rationalization'], ['Application Production Support'], ['Application Production Support'], ['Application Production Support'], ['Application Production Support'], ['Application Production Support'], ['Asset & Dependency Management'], ['Asset & Dependency Management'], ['Asset & Dependency Management'], ['Asset & Dependency Management'], ['Asset & Dependency Management'], ['Automated Testing and Quality Assurance'], ['Automated Testing and Quality Assurance'], ['Automated Testing and Quality Assurance'], ['Automated Testing and Quality Assurance'], ['Automated Testing and Quality Assurance'], ['Automation'], ['Automation'], ['Automation'], ['Automation'], ['Automation'], ['Availability']]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Store all capability in an array\n",
+    "s1_capability_read = s1.iter_rows(min_col=2, max_col=2)\n",
+    "capability_read = []\n",
+    "for row in s1_capability_read:\n",
+    "    tmp = []\n",
+    "    for column in row:\n",
+    "        tmp.append(column.value)\n",
+    "    capability_read.append(tmp)\n",
+    "print(capability_read)"
+   ],
+   "metadata": {
+    "collapsed": false,
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:10.360736Z",
+     "start_time": "2024-03-18T21:58:10.357675Z"
+    }
+   },
+   "id": "7dc1c597071c0b31",
+   "execution_count": 91
+  },
+  {
+   "cell_type": "code",
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[[1], [2], [3], [4], [5], [1], [2], [3], [4], [5], [1], [2], [3], [4], [5], [1], [2], [3], [4], [5], [1], [2], [3], [4], [5], [1], [2], [3], [4], [5], [1]]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Store all levels \n",
+    "s1_level_read = s1.iter_rows(min_col=3, max_col=3)\n",
+    "level_read = []\n",
+    "for row in s1_level_read:\n",
+    "    tmp = []\n",
+    "    for column in row:\n",
+    "        tmp.append(column.value)\n",
+    "    level_read.append(tmp)\n",
+    "print(level_read)"
+   ],
+   "metadata": {
+    "collapsed": false,
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:11.074444Z",
+     "start_time": "2024-03-18T21:58:11.071235Z"
+    }
+   },
+   "id": "32388e7faa92cb3a",
+   "execution_count": 92
+  },
+  {
+   "cell_type": "code",
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "[['Starting to build an application inventory using Excel, acknowledging it is out of date and incomplete., Organization uses basic spreadsheets to track inventory\\nOrganization has ad hoc processes for managing inventory (team/department level),\"Excel spreadsheet based inventory'], ['The organization employs an APM tool, though deployment is not comprehensive across all business units. The use of APM outputs for decision support is in the early stages, with basic application monitoring metrics being established., Organization has selected an APM tool to use\\nOrganization has rolled out APM tool and some teams have leveraged\\nOrganization uses APM output on ad hoc basis\\nOrganization monitors applications on ad hoc basis\\nOrganization has basic metrics,\"APM software exists but does not monitor all applications and/or has only high level metrics'], ['Organization has set requirements that APM tool be installed as part of onboarding process\\nOrganization uses APM reporting for application tracking and decision support,\"Utilizes APM software across the entire portfolio, providing insightful metrics on end-user experience and application resource monitoring, integrated into the onboarding process for application development or procurement.'], ['Organization has implemented deep inspection aspect of APM tool\\nOrganization actively tracks and troubleshoots application performance\\nOrganization leverages APM for dependency mapping and holistic view of application portfolio\\nOrganization reviews APM reports frequently and is part of SDLC agile process for performance/optimization understanding,\"Deep dive application component monitoring, business transactions per application, etc..  Frequent application performance reporting and problem identification.'], ['Organization actively manages entire estate via APM single pane of glass\\nOrganization exposes internal metrics for all members of the organization\\nOrganization has implemented and leverages detailed metrics that are fed into analytics tools,\"Advanced monitoring allows fine grained, predictive analytics to continuously optimize and track applications across numerous dimensions. Single pane of glass for entire portfolio (on-prem and cloud)'], ['Beginning ad-hoc rationalization without a comprehensive understanding of the application portfolio., Organization has out of date snapshots of their application portfolio\\nOrganization pursues ad hoc rationalization efforts,\"Ad-hoc rationalization.  No portfolio wide understanding of tech stack, architecture, TCO or application usage.'], ['An application portfolio rationalization effort is in progress with preliminary TCO and usage mapping underway. The information compiled is subject to validation, and there is movement towards establishing a basic enterprise architecture., Organization has performed TCO analysis\\nOrganization has compiled application portfolio information in centralized area\\nOrganization has identified tech stack\\nOrganization has developed roadmaps for tech stack consolidation\\nOrganization has developed basic enterprise architecture,\"Portfolio rationalization effort is planned, under way, or recently completed, but not a periodic process.  '], ['Organization uses instrumentation to track application TCOs\\nOrganization correlates TCO with business value outcomes to ascribe a basic productivity unit-cost metric for use in rationalization \\nOrganization actively tracks customer usage, resources, and other metrics\\nOrganization has developed and implemented organization wide architecture design patterns and tech guidelines\\nOrganization has included rationalization review as part of SDLC sporadically\\nOrganization has identified non-standard technology and anti-pattern resources\\nOrganization has developed roadmaps to mitigate non-standard technology and anti-patterns,\"Embeds rationalization review in the SDLC, utilizing tools for application portfolio cost and usage tracking, and addressing legacy applications with a strategic plan.'], ['Organization performs rationalization reviews on yearly basis (or shorter time period)\\nOrganization has robust architectural patterns\\nOrganization has clear enterprise tech recommendations\\nOrganization has new technology evaluation process\\nOrganization has mapped application functionality\\nOrganization leverages live application meta data for identification of under-utilized or high-cost applications\\nOrganization has processes in place for pruning applications that have high costs or are underutilized\\nDuring rationalization reviews, the organization is able to assess the technical, cost, and business value suitability of its available hosting endpoints readily triage workloads to the most appropriate platform (or region),\"Frequent rationalization reviews based on comprehensive, accurate live data.  Enterprise standards exist, but are flexible, extensible and allow for innovation.'], ['Organization includes rationalization as part of the continuous agile process\\nOrganization has continuous update and maintenance programs for all applications\\nOrganization has implemented loosely coupled application architecture\\nOrganization has implemented continuous application review including cost/usage footprint and metrics optimization,\"Real-time application meta data is monitored and reviewed.  Rationalization is a continuous part of the Agile SDLC.'], ['Initiating efforts to correlate production issues and streamline support despite a siloed model., Finger pointing\\nIssue remediation exceeds SLA > 25% of the time\\nMissed milestones due to support of existing features > 25% of the time\\nManual remediation for > 25% of issues,\"Production issues are frequent and interrupt delivery of new features.  A siloed operating model results in a lot of tickets without a lot of correlation or established RACI.  Failure rate when introducing changes is high.'], ['Application production issues are managed to avoid impacting new feature development, with a developing operational roadmap to balance development and support. Root cause analysis from post-mortems is applied for process improvement., Support process documentation and roadmap in progress\\nDedicated support staff\\nIssue remediation exceeds SLA < 25% of the time\\nMissed milestones due to support of existing features < 25% of the time\\nManual remediation for < 25% of issues,\"Production issues happen but are normally managed without impacting new feature development.  An operational roadmap is in development to prioritize and staff development vs support work.  When failures happen, post mortems identify root cause and improve process.'], ['Self-healing capabilities for >25% of services\\n99% availability for all services\\nAutomated rollback for all releases,\"Defined process for production support.  DevOps culture encourages cross-functional responsibility.  Interruptions are mitigated using the defined process.'], ['KPIs are regularly published and reviewed\\nProduction incidents inform process/tooling changes,\"Production support is measured.  These metrics are used to team make up, commitment, and forecast.  Application resilience designs are improved due to metrics. '], ['Deployment process that supports zero downtime (Blue/Green, Canary, etc..)\\nAI/ML leveraged for proactive support\\n,\"Majority of support issues are resolved using automation and self-healing.  Zero downtime caused by support issues.  True SRE culture exists.'], ['Beginning to address asset and dependency management challenges with manual tracking., <25% automated asset tracking\\nLow integration with asset/dependency tracking and other systems (financial, CMDB, etc..)\\nInventory updated every 48 hours or less frequently\\nSparse reporting\\nInefficient IT spend,\"A lack of standardized tooling presents difficulty identifying location, identity, quantity and status of assets and their dependencies.  Usage monitoring is difficult which leads to service interruptions and unintended downtime.'], ['Asset management utilizes automated discovery and monitoring, with integration into the support desk to facilitate asset inventory reconciliation and support issue remediation., Automation of >50% of asset deployment\\nAutomation of >50% of asset discovery\\nAutomation of >50% of usage monitoring\\n>75% of infrastructure added to CMDB at provisioning time,\"Tooling is standardized and Auto discover assets is in place.  Asset deployment and usage monitoring is automated.  Reconciliation and remediation of support issues is enabled by asset inventory.'], ['100% of assets and dependencies tracked\\nEphemeral assets tracked in real time\\n>75% of support costs tracked at asset level\\nDirect costs can be attributed to specific assets and to named applications to deliver financial insights,\"Assets and dependencies are tracked from deployment to upgrade to retirement.  Analytics in place and used for forecasting.'], ['100% of assets comply with regulations and standards\\nVery low error rate during configuration of assets\\nAll assets can be tracked to a business or technical service  and have a designated internal owner ,\"Strong change and configuration management practices support maintaining standards throughout asset lifecycle.  '], ['Asset consumption trends are well understood and frequently assessed to ensure that optimal consumption models are utilized and inventory levels/thresholds are appropriate\\nThe CMDB maintains a consistent 100% accuracy. \\nManual interventions to manage items flagged during reconciliation processes are treated as exceptions ,\"The organization is continually optimizing  the change and configuration management practices. '], ['\"IaC is standardized across most projects,  with automation tools widely adopted,  though some manual processes may still exist.'], ['\"Automated testing is used for key parts of the application but lacks breadth and depth across the development lifecycle., '], ['\"IaC is standardized across most projects,  with automation tools widely adopted,  though some manual processes may still exist.'], ['\"Automated testing is optimized,  offering comprehensive coverage,  fast feedback,  and integration into all stages of development.'], ['\"Testing processes are leading-edge,  enabling rapid iterations,  instant feedback,  and flawless releases through advanced automation and AI-enhanced tools.'], ['Automation is in early stages with few teams integrating it inconsistently and without standardization., Initial Automation Goals defined however goals vary by teams and collaboration is limited. \\nAutomation usage exists in pockets, tooling lacks standardized approach. Multiple tools exist and usage of tooling has overlap (ex-multiple tools leveraged to configure instances (bash, ansible, PowerShell)) .  \\nNeed for automation standards identified. ,\"Few teams integrate automation into their processes/procedures however tooling and tooling usage is not standardized.  There is no standard approach organization wide to automation. '], ['A majority of teams have adopted a level of automation with defined tooling boundaries. The company recognizes the benefits of automation, evidenced by a roadmap and identified tooling, though it has not become an organizational imperative., Automation standards developed covering core IT needs, Application automation standards beginning to be developed.  \\nAutomation tooling boundaries defined defining acceptable usage and preventing overlap. New infrastructure projects utilize standard approach. \\nAutomation standards defined for infrastructure with teams beginning to deploy automation in line with standards. ,\"Most teams leverage some level of automation and standard usage and tooling boundaries exist within teams. The company values what automation can add, but has not made automation an organizational priority. '], ['Automation standards in place for all infrastructure needs, all infrastructure deployed in line with standards. \\nAutomation standards committee in place to provide periodic updates to standards and incorporate new technologies. \\nAutomation tooling boundaries exist for Application as well as infrastructure tools and deployments.\\nExceptions from infrastructure automation standards is tracked and approved by the committee. ,\"Adopts established processes and standards for automation, integrating compliance reporting and aligning infrastructure deployment with automation standards.'], ['Automation standards in place for all infrastructure and application development and automated testing needs, all infrastructure and applications are deployed in line with standards. \\nAutomation standards committee in place to provide proactive review of standards and incorporate new technologies and challenge status quo.  \\nAutomation tooling boundaries exist for Application, infrastructure  and automated testing tools and deployments.\\nExceptions from automation standards is tracked and approved by the committee. ,\"Automation standards have been implemented by application and infrastructure teams across the organization. Exceptions to Automation Standards are tracked and approved by a standards committee. Teams routinely evaluate their portfolio to assess the ability to further enhance efficiencies of automation.'], ['Org is a leader in developing and improving automation standards within the community as a whole. \\nAutomation standards developed and matured with a culture of continuous improvement. \\nTakes initiative to develop automation platforms by developing new tooling to fill gaps or patterning with industry leaders. ,\"Automation standards committee proactively reviews automation approach and adjusts standards to align with industry best practices. Automation standards have been implemented by application and infrastructure teams across the organization. Exceptions to Automation Standards are tracked and approved by a standards committee. Teams routinely evaluate their portfolio to assess the ability to further enhance efficiencies of automation.'], ['Applications are designed with minimal consideration for production operation, leading to frequent service interruptions due to poor integration of availability tooling., Document high availability and monitoring needs for each application\\nBusiness Impact Analysis (BIA) executed for >50% of apps/services destined for cloud estate\\nBusiness Availability Requirements defined for >50% of apps/services destined for cloud estate\\nBaseline Service management / monitoring in place\\nApplications are assigned A BCP / Resilience objectives\\nService Requirements and performance characteristics are documented\\nSLAs for components are matched with their On-Premises equivalent standards\\nResiliency objectives defined for Cloud Services\\nResiliency objectives defined for Applications destined for hybrid cloud\\nApplication performance requirements understood for on-premises execution\\nA set of definitions / recovery time for each BCP / Resilience objective exists\\nCSP or Hosting SLA/SLO drives internal App or Service SLA/SLOs,\"Applications are built with little consideration of how they will operate in a production system.  There is very little integration of service availability tooling in application design which causes frequent availability interruptions.']]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Store all criteria in an array\n",
+    "s1_criteria_read = s1.iter_rows(min_col=4, max_col=4)\n",
+    "criteria_read = []\n",
+    "for row in s1_criteria_read:\n",
+    "    tmp = []\n",
+    "    for column in row:\n",
+    "        tmp.append(column.value)\n",
+    "    criteria_read.append(tmp)\n",
+    "print(criteria_read)"
+   ],
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:11.779269Z",
+     "start_time": "2024-03-18T21:58:11.775099Z"
+    }
+   },
+   "id": "c3c7a6aa",
+   "execution_count": 93
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 94,
+   "id": "96ff738e",
+   "metadata": {
+    "ExecuteTime": {
+     "end_time": "2024-03-18T21:58:13.797423Z",
+     "start_time": "2024-03-18T21:58:13.793282Z"
+    }
+   },
+   "outputs": [],
+   "source": [
+    "# Find out all keywords of the criteria\n",
+    "def criteria_keywords(criteria):\n",
+    "    response = openai.completions.create(\n",
+    "      model=\"gpt-3.5-turbo-instruct\",\n",
+    "      prompt=f\"Find the key ideas in: {criteria}\",\n",
+    "      max_tokens=50,\n",
+    "      temperature=0.2,\n",
+    "      top_p=0.5,\n",
+    "      frequency_penalty=2,\n",
+    "      presence_penalty=-1\n",
+    "    )\n",
+    "    \n",
+    "    return response.choices[0].text.strip()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "24b77781",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "keywords_array = []\n",
+    "for i in range(0, len(capability_read), 2):\n",
+    "    features = criteria_keywords(criteria_read[i])\n",
+    "    # print(features)\n",
+    "    keywords_array.append(features)\n",
+    "    #keywords_array.append(features)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "fb162d63",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# The main function prompts the user to input the sentence and criteria they want to analyze, calls analyze_sentence with these inputs, and prints out the decision.\n",
+    "\n",
+    "result = [[] for _ in range(len(capability_read)+1)]\n",
+    "result[0].append(\"Domain\")\n",
+    "result[0].append(\"Capability\")\n",
+    "result[0].append(\"level\")\n",
+    "result[0].append(\"Features\")\n",
+    "\n",
+    "for i in range(len(capability_read)):\n",
+    "    result[i+1].append(domain_read[i][0]) # Put capability array in result\n",
+    "    result[i+1].append(capability_read[i][0]) # Put Questions array in result\n",
+    "    result[i+1].append(level_read[i][0])   # Put all answer array in result\n",
+    "    result[i+1].append(criteria_read[i])   # Put all keywords array in result \n",
+    "print(result)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "7e46f6d7",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "wb = openpyxl.Workbook()\n",
+    "sheet = wb.active\n",
+    "\n",
+    "for i in range(len(result)):\n",
+    "    for j in range(len(result[i])):\n",
+    "        sheet.cell(row=i + 1, column=j + 1).value = result[i][j]\n",
+    "\n",
+    "wb.save('output.xlsx') "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "outputs": [],
+   "source": [],
+   "metadata": {
+    "collapsed": false
+   },
+   "id": "ce461aaba24427e7"
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3 (ipykernel)",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.9.13"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
