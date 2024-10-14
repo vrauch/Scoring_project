@@ -1,15 +1,11 @@
+import mysql.connector
+from db_config import *
+
 
 def load_from_db():
-    import mysql.connector
-
     try:
         # Setup MySQL connection
-        connection = mysql.connector.connect(
-            host='localhost',
-            database='e2caf',
-            user='root',
-            password='root'
-        )
+        connection = get_db_connection()
 
         # Check if the connection is established
         if connection.is_connected():
@@ -25,28 +21,23 @@ def load_from_db():
                         MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
                         MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
                     FROM
-                        Questions Q
+                         e2caf.Questions Q
                     INNER JOIN
-                        Capabilities C ON Q.capability_id = C.capability_id
+                        e2caf.Capabilities C ON Q.capability_id = C.capability_id
                     INNER JOIN
-                        Domain D ON C.domain_id = D.domain_id
+                        e2caf.Domain D ON C.domain_id = D.domain_id
                     LEFT JOIN
-                        answers A ON A.question_id = Q.uid
+                        e2caf.answers A ON A.question_id = Q.uid
                     LEFT JOIN
-                        CapabilityDetails CD ON C.capability_id = CD.capability_id
+                        e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
                     WHERE
-                        Q.Level IN (1, 2) AND A.openended_answer is not null
+                        Q.Level IN (1, 2) AND A.project_id = 2
                     GROUP BY
                         D.domain_name, C.capability_name, Q.Level;
                 """
 
             # Execute the query
-            cursor.execute(select_query)
-            rows = cursor.fetchall()  # Fetch all the rows returned by the query
-
-            # Close the cursor and connection
-            cursor.close()
-            connection.close()
+            rows = execute_query(select_query)
 
             return rows
 
@@ -55,9 +46,8 @@ def load_from_db():
         return None
 
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             connection.close()
-
 
 def response_load(file_name):
     import pandas as pd
@@ -261,15 +251,12 @@ def clean_and_normalize_text(text):
 
 
 def to_sentence_case(text):
-    import re
     if not isinstance(text, str):
-        raise TypeError("expected string or bytes-like object")
-    # Split the text into sentences using a regex that captures some common sentence enders
-    sentences = re.split('(?<=[.!?:]) +', text)
-    # Convert each sentence to lowercase and then capitalize the first letter
-    sentences = [sentence.capitalize() for sentence in sentences]
-    # Join the sentences back together
-    return ' '.join(sentences)
+        raise TypeError("Expected a string")
+    text = text.strip().lower()  # Ensure the text is in lowercase
+    if text:
+        return text[0].upper() + text[1:]  # Capitalize the first letter
+    return text
 
 
 def get_maturity_score(text):

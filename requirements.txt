@@ -83,11 +83,11 @@ nbconvert==7.16.2
 nbformat==5.10.3
 nest-asyncio==1.6.0
 networkx==3.1
-nltk==3.8.1
+nltk~=3.9.1
 notebook==7.1.2
 notebook_shim==0.2.4
 numpy==1.24.4
-openai==1.17.0
+openai~=0.28.0
 openapi==1.1.0
 openpyxl==3.1.2
 overrides==7.7.0
@@ -111,7 +111,7 @@ pycparser==2.21
 pydantic==2.6.4
 pydantic_core==2.16.3
 Pygments==2.17.2
-PyMySQL==1.1.0
+PyMySQL~=1.1.1
 pyspellchecker==0.8.1
 python-dateutil==2.9.0.post0
 python-docx==1.1.2
@@ -150,7 +150,7 @@ torchvision==0.17.1
 tornado==6.4
 tqdm==4.66.2
 traitlets==5.14.2
-transformers==4.39.0
+transformers~=4.45.2
 types-python-dateutil==2.9.0.20240316
 typing_extensions==4.10.0
 tzdata==2024.1
@@ -160,8 +160,11 @@ wcwidth==0.2.13
 webcolors==1.13
 webencodings==0.5.1
 websocket-client==1.7.0
-Werkzeug==3.0.1
+Werkzeug~=3.0.4
 widgetsnbextension==4.0.10
 wrapt==1.16.0
 yarl==1.9.4
 zipp==3.18.1
+
+mysql-connector-python~=9.0.0
+tiktoken~=0.7.0

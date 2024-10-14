@@ -1,73 +1,71 @@
-import pymysql
+import mysql.connector
 import logging
-import pandas as pd
 
+# Database configuration
 db_config = {
-    "hostname": "localhost",
-    "user" : "root",
-    "password" : "root",
-    "database" : "e2caf"
+    "host": "localhost",
+    "user": "root",
+    "password": "root",
+    "database": "e2caf"
 }
-#%%
+
+
+# Function to establish a database connection
 def get_db_connection():
     connection = None
     try:
-        # Database connection
-        connection = pymysql.connect(
-            host=db_config['hostname'],
-            user=db_config['user'],
-            password=db_config['password'],
-            database=db_config['database'],
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        if connection.open:
-            print("Successfully connected to the database")
-    except Exception as e:
-        print("An error occurred while connecting to the database:", str(e))
+        # Database connection using mysql.connector
+        connection = mysql.connector.connect(**db_config)
 
-    return connection
-
-#%%
-def execute_query(query, values=None, commit=False, fetch_id=False):
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(query, values if values else ())
-            if commit:
-                connection.commit()
-                if fetch_id:
-                    return cursor.lastrowid
-                return None
-            return cursor.fetchall()
-    except Exception as e:
-        logging.error(f"Database error during execute_query: {e}")
-        if commit:
-            connection.rollback()  # Rollback if there was an error during a commit operation
+        if connection.is_connected():
+            logging.info("Successfully connected to the database")
+        return connection
+    except mysql.connector.Error as e:
+        logging.error(f"Error connecting to the database: {e}")
         raise
     finally:
-        if connection:
-            connection.close()  # Close the connection after query execution
+        if connection is None or not connection.is_connected():
+            logging.error("Failed to establish database connection.")
 
-def execute_query_lid(query, values=None, commit=False, fetch_id=True):
+
+# Function to execute a query (for SELECT statements or others without commit)
+def execute_query(query, values=None):
     connection = get_db_connection()
+    results = None
     try:
-        with connection.cursor() as cursor:
-            cursor.execute(query, values)
-            last_id = cursor.lastrowid  # Capture last inserted ID immediately
-            if commit:
-                connection.commit()
-            return last_id if last_id else cursor.fetchall()  # Return last_id if available, otherwise fetch results
-    except Exception as e:
-        logging.error(f"Database error during execute_query_lid: {e}")
-        if commit:
-            connection.rollback()  # Rollback if there was an error during a commit operation
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(query, values if values else ())
+        results = cursor.fetchall()
+    except mysql.connector.Error as e:
+        logging.error(f"Error executing query: {e}")
         raise
     finally:
-        if connection:
+        if connection and connection.is_connected():
+            cursor.close()
             connection.close()  # Close the connection after query execution
-#%%
+    return results
 
-query = "SELECT r.project_id AS Project_id, r.domain AS domain_id, r.capability AS Capability, r.level AS Level, r.response_text AS Response, c1.Criteria AS Criteria_Level, c2.Criteria AS Criteria_Level_Plus_One FROM tb_response AS r INNER JOIN tb_capabilities AS c1 ON r.capability = c1.Capability AND r.level = c1.Level LEFT JOIN tb_capabilities AS c2 ON r.capability = c2.Capability AND r.level + 1 = c2.Level"
-result = execute_query(query)
-df = pd.DataFrame(result)
-df.to_csv('~/test.csv', index=False)
+
+# Function to execute a query with commit (for INSERT, UPDATE, DELETE, etc.)
+def execute_query_commit(query, values=None, fetch_id=False):
+    global cursor
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(query, values if values else ())
+
+        if fetch_id:
+            last_id = cursor.lastrowid  # Fetch last inserted ID if required
+            connection.commit()
+            return last_id
+
+        connection.commit()  # Commit changes if no errors
+    except mysql.connector.Error as e:
+        logging.error(f"Error during query execution with commit: {e}")
+        connection.rollback()  # Rollback transaction if there's an error
+        raise
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+
