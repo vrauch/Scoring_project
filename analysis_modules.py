@@ -29,7 +29,7 @@ def load_from_db_project(project_id):
                 INNER JOIN
                     e2caf.Domain D ON C.domain_id = D.domain_id
                 LEFT JOIN
-                    e2caf.answers A ON A.question_id = Q.uid
+                    e2caf.Answers A ON A.question_id = Q.uid
                 LEFT JOIN
                     e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
                 join e2caf.AssessmentProject AP ON A.project_id = AP.project_id
@@ -107,11 +107,9 @@ def non_priority_load(file_name):
 def ia_analysis(criteria, assessment, prompt):
     try:
         import openai
-        from openai import OpenAI
         import os
         openai.api_key = os.getenv('OPENAI_API_KEY')
-        client = OpenAI(api_key=openai.api_key)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system",
@@ -137,11 +135,9 @@ def ia_analysis(criteria, assessment, prompt):
 def build_backlog(prompt, recommendation):
     try:
         import openai
-        from openai import OpenAI
         import os
         openai.api_key = os.getenv('OPENAI_API_KEY')
-        client = OpenAI(api_key=openai.api_key)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system",
@@ -167,11 +163,9 @@ def build_backlog(prompt, recommendation):
 def question_response(capability, level, cap_level, feature, objective, prompt):
     try:
         import openai
-        from openai import OpenAI
         import os
         openai.api_key = os.getenv('OPENAI_API_KEY')
-        client = OpenAI(api_key=openai.api_key)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system",
@@ -198,9 +192,7 @@ def question_response(capability, level, cap_level, feature, objective, prompt):
 def summarize_paragraph(domain, data, prompt):
     import openai
     import os
-    from openai import OpenAI
     openai.api_key = os.getenv('OPENAI_API_KEY')
-    client = OpenAI(api_key=openai.api_key)
     # Use the completion endpoint to summarize the paragraph
     response = openai.completions.create(
         model="gpt-3.5-turbo-instruct",
