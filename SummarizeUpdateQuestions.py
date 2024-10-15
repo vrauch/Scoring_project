@@ -1,3 +1,4 @@
+# Must use openai .28 for this script. pip insta;; openai.28
 import openai
 import openai.error
 import os
@@ -8,8 +9,8 @@ QUESTION_TABLE = "e2caf.Questions"
 # MODEL_NAME = "gpt-3.5-turbo"
 API_MAX_TOKEN = 50
 API_TEMP = 0.3
-QUERY_SELECT = "SELECT uid, 'binary' FROM e2caf.Questions"
-QUERY_UPDATE = "UPDATE e2caf.Questions SET 'binary' = %s WHERE uid = %s"
+QUERY_SELECT = """SELECT uid, `binary` FROM e2caf.Questions"""
+QUERY_UPDATE = "UPDATE e2caf.Questions SET `binary` = %s WHERE uid = %s"
 
 openai.api_key = OPENAI_API_KEY
 
@@ -19,7 +20,7 @@ def summarize_question(question):
     if not question or not question.strip():
         return "Invalid question input."
 
-    prompt = f"Summarize the following question into a single binary question of no more than 15 words:\n\n{question}"
+    prompt = f"Rewrite the following question: {question} to be no more than 15 words."
 
     try:
         # Correct method to use ChatCompletion in openai>=1.0.0
@@ -45,7 +46,7 @@ def summarize_question(question):
 
 
 def update_question_in_database(database_connection, question_id, summarized_question):
-    #db_config.execute_query_commit(QUERY_UPDATE, (summarized_question, question_id))
+    db_config.execute_query_commit(QUERY_UPDATE, (summarized_question, question_id))
     print(f"Question ID {question_id} will be updated to: {summarized_question}")
 
 

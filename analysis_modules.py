@@ -1,48 +1,57 @@
 import mysql.connector
 from db_config import *
+import logging
 
 
-def load_from_db():
+def load_from_db_project(project_id):
     try:
         # Setup MySQL connection
         connection = get_db_connection()
 
         # Check if the connection is established
         if connection.is_connected():
-            cursor = connection.cursor(dictionary=True)  # Return results as dictionaries
+            cursor = connection.cursor(dictionary=True)
 
             # SQL query to retrieve data
             select_query = """
-                    SELECT
-                        D.domain_name AS Domain,
-                        C.capability_name AS Capability,
-                        Q.Level as Level,
-                        MAX(CASE WHEN Q.Level = 1 THEN A.openended_answer END) AS Assessment,
-                        MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
-                        MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
-                    FROM
-                         e2caf.Questions Q
-                    INNER JOIN
-                        e2caf.Capabilities C ON Q.capability_id = C.capability_id
-                    INNER JOIN
-                        e2caf.Domain D ON C.domain_id = D.domain_id
-                    LEFT JOIN
-                        e2caf.answers A ON A.question_id = Q.uid
-                    LEFT JOIN
-                        e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
-                    WHERE
-                        Q.Level IN (1, 2) AND A.project_id = 2
-                    GROUP BY
-                        D.domain_name, C.capability_name, Q.Level;
-                """
+                SELECT
+                    D.domain_name AS Domain,
+                    C.capability_name AS Capability,
+                    Q.Level as Level,
+                    AP.project_name,
+                    MAX(CASE WHEN Q.Level = 1 THEN A.openended_answer END) AS Assessment,
+                    MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
+                    MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
+                FROM
+                    e2caf.Questions Q
+                INNER JOIN
+                    e2caf.Capabilities C ON Q.capability_id = C.capability_id
+                INNER JOIN
+                    e2caf.Domain D ON C.domain_id = D.domain_id
+                LEFT JOIN
+                    e2caf.answers A ON A.question_id = Q.uid
+                LEFT JOIN
+                    e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
+                join e2caf.AssessmentProject AP ON A.project_id = AP.project_id
+                WHERE
+                    Q.Level IN (1, 2) AND A.project_id = %s
+                GROUP BY
+                    D.domain_name, C.capability_name, Q.Level;
+            """
 
-            # Execute the query
-            rows = execute_query(select_query)
+            # Log the query and the parameters being used
+            logging.info(f"Executing query: {select_query} with project_id: {project_id}")
 
+            # Execute the query with project_id as a tuple
+            cursor.execute(select_query, (project_id,))
+            rows = cursor.fetchall()
+
+            if not rows:
+                logging.info(f"No rows returned for project ID {project_id}")
             return rows
 
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
+        logging.error(f"Error executing query: {err}")
         return None
 
     finally:
