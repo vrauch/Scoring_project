@@ -7,9 +7,7 @@ import pandas as pd
 
 # Define constants
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if OPENAI_API_KEY is None:
-    print("Environment variable OPENAI_API_KEY is not set")
-    sys.exit(1)
+
 SQL_QUERY = """
 SELECT C.capability_id as capability_id,
        CD.level as level,
@@ -21,7 +19,7 @@ FROM e2caf.Capabilities C
 JOIN e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
 JOIN e2caf.Questions Q ON CD.capability_id = Q.capability_id AND CD.level = Q.level
 WHERE CD.level < 2
-  AND CD.capability_id IN (723)
+  AND CD.capability_id IN (723, 726, 727, 746, 749, 760, 765, 766, 767, 775, 797, 803, 826, 848, 850, 890, 919)
 GROUP BY C.capability_id, CD.level, CD.capability_at_level, CD.features, CD.scoring_criteria_at_level, Q.uid
 ORDER BY C.capability_id, CD.level;
 """
@@ -45,7 +43,7 @@ def query_criteria_from_db():
     return db_config.execute_query(SQL_QUERY)
 
 
-def summarize_criteria(criteria):
+def summarize_criteria(criteria, criteria_sum=None):
     prompt = f"Summarize the following criteria into a concise paragraph:\n\n{criteria}"
     try:
         response = openai.ChatCompletion.create(
@@ -118,7 +116,6 @@ def analyze_document(document, criteria, binary_questions, openended_questions):
         capability_id = criteria[criterion]['capability_id']
         level = criteria[criterion]['level']
         question_id = criteria[criterion]['question_id']
-
         binary_ans = get_analysis_result(document, criterion, binary_questions[criterion], 'binary')
         justification_ans = get_analysis_result(document, criterion, openended_questions[criterion], 'openended')
 
@@ -155,29 +152,29 @@ def main(document_path):
     df = pd.DataFrame(data, columns=["question_id", "openended_answer", "capability_id"])
 
     # Add additional columns
-    df["project_id"] = 2
+    df["project_id"] = 19
     df["binary_answer"] = "Yes"
 
     # Display settings for DataFrame
-    pd.set_option('display.max_rows', 3)
-    pd.set_option('display.max_columns', 6)
-    print(df)
+    # pd.set_option('display.max_rows', 3)
+    # pd.set_option('display.max_columns', 6)
+    # print(df)
 
     # SQL insert query template for the Answers table
-#    insert_query = """
-#        INSERT INTO Answers (question_id, openended_answer, capability_id, project_id, binary_answer)
-#        VALUES (%s, %s, %s, %s, %s)
-#    """
+    insert_query = """
+        INSERT INTO Answers (question_id, openended_answer, capability_id, project_id, binary_answer)
+        VALUES (%s, %s, %s, %s, %s)
+    """
 
     # Insert each row into the database
-#    for index, row in df.iterrows():
-#        values = (
-#        row["question_id"], row["openended_answer"], row["capability_id"], row["project_id"], row["binary_answer"])
-#        try:
-#            db_config.execute_query_commit(insert_query, values)
-#            print(f"Inserted row {index} successfully")
-#        except Exception as e:
-#            print(f"Error inserting row {index}: {e}")
+    for index, row in df.iterrows():
+        values = (
+        row["question_id"], row["openended_answer"], row["capability_id"], row["project_id"], row["binary_answer"])
+        try:
+            db_config.execute_query_commit(insert_query, values)
+            print(f"Inserted row {index} successfully")
+        except Exception as e:
+            print(f"Error inserting row {index}: {e}")
 
 
 #def main(document_path):

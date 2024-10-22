@@ -1,6 +1,12 @@
 import mysql.connector
 from db_config import *
 import logging
+from transformers import BertTokenizer, BertModel
+import torch
+from scipy.spatial.distance import cosine
+import re
+import unicodedata
+import contractions
 
 
 def load_from_db_project(project_id):
@@ -17,6 +23,7 @@ def load_from_db_project(project_id):
                 SELECT
                     D.domain_name AS Domain,
                     C.capability_name AS Capability,
+                    C.capability_id,
                     Q.Level as Level,
                     AP.project_name,
                     MAX(CASE WHEN Q.Level = 1 THEN A.openended_answer END) AS Assessment,
@@ -36,7 +43,7 @@ def load_from_db_project(project_id):
                 WHERE
                     Q.Level IN (1, 2) AND A.project_id = %s
                 GROUP BY
-                    D.domain_name, C.capability_name, Q.Level;
+                    D.domain_name, C.capability_name, C.capability_id, Q.Level;
             """
 
             # Log the query and the parameters being used
@@ -57,6 +64,7 @@ def load_from_db_project(project_id):
     finally:
         if connection and connection.is_connected():
             connection.close()
+
 
 def response_load(file_name):
     import pandas as pd
@@ -188,7 +196,6 @@ def question_response(capability, level, cap_level, feature, objective, prompt):
         print("Please check your OpenAI library installation and usage.")
 
 
-# %%
 def summarize_paragraph(domain, data, prompt):
     import openai
     import os
@@ -207,9 +214,7 @@ def summarize_paragraph(domain, data, prompt):
     return response.choices[0].text.strip()
 
 
-# %%
 def get_embedding(text, tokenizer, model):
-    import torch
     # Tokenize and convert to input IDs
     inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
 
@@ -228,9 +233,7 @@ def get_embedding(text, tokenizer, model):
     return mean_pooled
 
 
-# %%
 def compute_cosine_similarity(criteria, text, tokenizer, model):
-    from scipy.spatial.distance import cosine
     # Get embeddings for both texts
     embedding1 = get_embedding(criteria, tokenizer, model).numpy().flatten()
     embedding2 = get_embedding(text, tokenizer, model).numpy().flatten()
@@ -240,32 +243,120 @@ def compute_cosine_similarity(criteria, text, tokenizer, model):
     return score
 
 
-# %%
 def clean_and_normalize_text(text):
-    import re
     if text is None:
         return None
-    cleaned_text = str(text).strip()
-    cleaned_text = cleaned_text.lower()
-    #cleaned_text = re.sub(r'[\n\r]+', '', cleaned_text)
+
+    # Convert to string, strip whitespace, and convert to lowercase
+    cleaned_text = str(text).strip().lower()
+    # Expand contractions
+    cleaned_text = contractions.fix(cleaned_text)
+    # Remove leading -, =, and whitespace characters
+    cleaned_text = re.sub(r'^[\-=\s]+', '', cleaned_text)
+    # Remove newlines and carriage returns
+    cleaned_text = re.sub(r'[\n\r]+', ' ', cleaned_text)
+    # Remove HTML tags
+    cleaned_text = re.sub(r'<.*?>', '', cleaned_text)
+    # Remove URLs
+    cleaned_text = re.sub(r'http\S+|www\S+|https\S+', '', cleaned_text, flags=re.MULTILINE)
+    # Remove special characters and punctuation
+    cleaned_text = re.sub(r'[^\w\s]', '', cleaned_text)
+    # Remove numbers (if necessary)
+    cleaned_text = re.sub(r'\d+', '', cleaned_text)
+    # Normalize accented characters
+    cleaned_text = unicodedata.normalize('NFKD', cleaned_text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+    # Remove extra spaces
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text).strip()
+
     return cleaned_text
 
 
 def to_sentence_case(text):
     if not isinstance(text, str):
         raise TypeError("Expected a string")
-    text = text.strip().lower()  # Ensure the text is in lowercase
-    if text:
-        return text[0].upper() + text[1:]  # Capitalize the first letter
-    return text
+    # Trim whitespace and split into sentences
+    sentences = text.strip().split('. ')
+    # Capitalize each sentence's first character
+    sentences = [sentence.capitalize() for sentence in sentences if sentence]
+    # Rejoin the sentences
+    return '. '.join(sentences)
 
 
 def get_maturity_score(text):
-    if 'Alignment: Strong' in text:
+    if 'Strong' in text:
         return 1.0
-    elif 'Alignment: Moderate' in text:
+    elif 'Moderate' in text:
         return 0.5
-    elif 'Alignment: Weak' in text:
+    elif 'Weak' in text:
         return 0.0
     else:
         return 0.0
+
+
+import mysql.connector
+from mysql.connector import Error
+
+
+def save_analysis_result(project_id,capability_id,level,alignment,similarity_score,maturity_score,recommendations):
+    """
+    Save analysis results to the AnalysisResults table in the database, if the combination of project_id and capability_id does not already exist.
+
+    Parameters:
+    - project_id: int
+    - capability_id: int
+    - level: int
+    - alignment: str
+    - similarity_score: float
+    - maturity_score: int
+    - recommendations: str
+    - backlog: str
+    """
+
+    try:
+        # Setup MySQL connection
+        connection = get_db_connection()
+
+        # Check if the project_id and capability_id combination already exists
+        check_query = """
+            SELECT COUNT(*) FROM AnalysisResults 
+            WHERE project_id = %s AND capability_id = %s
+        """
+        result = execute_query(check_query, (project_id, capability_id))
+        if result[0]['COUNT(*)'] > 0:
+            print(
+                f"Record already exists for project ID {project_id} and capability ID {capability_id}. Skipping insert.")
+            return
+
+        # Prepare the SQL insert query
+        insert_query = """
+            INSERT INTO AnalysisResults (
+                project_id,
+                capability_id,
+                level,
+                alignment,
+                similarity_score,
+                maturity_score,
+                recommendations,
+                created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """
+
+        # Execute the query with the provided data
+        execute_query_commit(insert_query, (
+            project_id,
+            capability_id,
+            level,
+            alignment,
+            similarity_score,
+            maturity_score,
+            recommendations,
+        ))
+
+        print(f"Analysis result saved successfully for project ID {project_id} and capability ID {capability_id}.")
+
+    except Error as e:
+        print(f"Error while saving analysis results: {e}")
+    finally:
+        # Close the cursor and connection
+        if connection.is_connected():
+            connection.close()
