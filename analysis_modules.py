@@ -7,6 +7,7 @@ from scipy.spatial.distance import cosine
 import re
 import unicodedata
 import contractions
+from mysql.connector import Error
 
 
 def load_from_db_project(project_id):
@@ -101,24 +102,13 @@ def question_dev(file_name):
     return df
 
 
-def non_priority_load(file_name):
-    import pandas as pd
-    df = pd.read_excel(file_name)
-    df['Domain'] = df['Domain']
-    df['Capability'] = df['Capability']
-    # Normalize text data in specific columns - also converting to string type
-    df['Response'] = df['Response'].astype(str)
-    df['Criteria3'] = df['Criteria3'].astype(str)
-    return df
-
-
 def ia_analysis(criteria, assessment, prompt):
     try:
         import openai
         import os
         openai.api_key = os.getenv('OPENAI_API_KEY')
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system",
                  "content": "You have your professional business consultant with and MBA and are an expert in Business Analysis"},
@@ -283,35 +273,14 @@ def to_sentence_case(text):
 
 
 def get_maturity_score(text):
-    if 'Strong' in text:
-        return 1.0
-    elif 'Moderate' in text:
-        return 0.5
-    elif 'Weak' in text:
-        return 0.0
-    else:
-        return 0.0
+    # Dictionary to map keywords to scores
+    scores = {"Strong": 1.0, "Moderate": 0.5, "Weak": 0.0}
+    # Look for any keyword in the text, return the associated score, or 0.0 if not found
+    return next((score for keyword, score in scores.items() if keyword in text), 0.0)
 
 
-import mysql.connector
-from mysql.connector import Error
-
-
-def save_analysis_result(project_id,capability_id,level,alignment,similarity_score,maturity_score,recommendations):
-    """
-    Save analysis results to the AnalysisResults table in the database, if the combination of project_id and capability_id does not already exist.
-
-    Parameters:
-    - project_id: int
-    - capability_id: int
-    - level: int
-    - alignment: str
-    - similarity_score: float
-    - maturity_score: int
-    - recommendations: str
-    - backlog: str
-    """
-
+def save_analysis_result(project_id, capability_id, level, alignment, similarity_score, maturity_score,
+                         recommendations):
     try:
         # Setup MySQL connection
         connection = get_db_connection()
@@ -329,7 +298,7 @@ def save_analysis_result(project_id,capability_id,level,alignment,similarity_sco
 
         # Prepare the SQL insert query
         insert_query = """
-            INSERT INTO AnalysisResults (
+            INSERT INTO e2caf.AnalysisResults (
                 project_id,
                 capability_id,
                 level,

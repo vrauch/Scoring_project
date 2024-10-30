@@ -62,24 +62,25 @@ if rows:
 
         # Construct the alignment prompt
         prompt = f"""
-                    Analyze the following text: {assessment} compare it to the following criteria: {criteria}. 
-                    Gauge the alignment of the text to the criteria and output an alignment of either weak, moderate, or strong.
-                    Include 3 short, less than 20 words, bullet points as a justification for the alignment rating. 
-                    These bullet points should be concise and fact-based statements.
-                    Please provide the output in plain text format without any special characters, symbols, or Markdown-style 
-                    formatting. Do not use asterisks (*) for bold text or any other special formatting.
-                    Output format:
-                    Alignment rating
-                    Bullet point 1
-                    Bullet point 2
-                    Bullet point 3
-                    """
+                    Analyze the following text for alignment with the specified criteria.
+                    Text: {assessment}
+                    Criteria: {criteria}
+
+                    1. Determine whether the alignment is weak, moderate, or strong.
+                    2. Provide a brief, fact-based synopsis (less than 75 words) justifying the alignment rating. Focus on specific points of alignment or gaps relative to the criteria.
+
+                    Output Requirements:
+                    - Return only the alignment rating and synopsis in plain text without any labels, headers, or introductory phrases.
+                    - Do not use any special formatting, characters, symbols, Markdown, or any form of labeling (e.g., "Alignment:" or "Synopsis:").
+                    - Avoid any asterisks (*) or stylistic indicators.
+                """
 
         alignment = ia_analysis(criteria, assessment, prompt)
         alignment = clean_and_normalize_text(alignment)
         alignment = to_sentence_case(alignment)
 
         maturity_score = get_maturity_score(alignment)
+        print(maturity_score)
 
         # Calculate Semantic Similarity Score
         similarity = compute_cosine_similarity(criteria, assessment, tokenizer, model)
@@ -89,17 +90,26 @@ if rows:
 
         # Construct the recommendations prompt
         prompt = f"""
-                    Analyze a scenario involving the progression from a Level 1 to Level 2 maturity in a 
-                    business context. Considering the Level 1 Assessment {assessment}, and the criteria for achieving 
-                    Level 2 maturity: {criteria2}. 
-                    Include 3 short, less than 20 words, bullet point recommendations. These bullet points should be concise and 
-                    fact-based statements.
-                    Please provide the output in plain text format without any special headings, characters, symbols, or Markdown-style 
-                    formatting. Do not use asterisks (*) for bold text or any other special formatting.
-                    Output Format:
-                    Bullet point 1
-                    Bullet point 2
-                    Bullet point 3
+                    Analyze the following scenario regarding the progression from Level 1 to Level 2 maturity within a 
+                    business context.
+                    Assessment at Level 1: {assessment}
+                    Criteria for Level 2 Maturity: {criteria2}
+
+                    1. Based on the Level 1 assessment and Level 2 maturity criteria, write a short, fact-based 
+                    recommendation synopsis (no more than 75 words) that supports this progression. 
+                    Focus on actionable insights and key steps needed for moving from Level 1 to Level 2.
+
+                    Output Requirements:
+                    - Return only the recommendation synopsis in plain text without any labels, headers, or introductory 
+                    phrases.
+                    - Avoid any special formatting, characters, symbols, or Markdown, and do not use labels such as 
+                    "Recommendation:" or "Synopsis:".
+                    - Do not include any asterisks (*) or stylistic indicators.
+
+                    Sample output:
+                    To progress capability maturity, prioritize establishing consistent governance practices, 
+                    integrate cloud-specific incident management, and strengthen compliance protocols to align cloud 
+                    and overall problem management frameworks.
                 """
         # Get the recommendation analysis
         recommendation = ia_analysis(criteria, assessment, prompt)
@@ -124,14 +134,14 @@ if rows:
 
         # Save data to the AnalysisResults table in the database
         save_analysis_result(
-            project_id=project_id,
-            capability_id=capability_id,
-            level=level,
+            project_id=int(project_id),
+            capability_id=int(capability_id),
+            level=int(level),
             alignment=alignment,
-            similarity_score=similarity,
-            maturity_score=maturity_score,
-            recommendations=recommendation,
-            #backlog=backlog
+            similarity_score=int(similarity),
+            maturity_score=int(maturity_score),
+            recommendations=recommendation
+            # backlog=backlog
         )
 
         # Document Output - Commented Out
