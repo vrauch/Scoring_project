@@ -31,16 +31,16 @@ def load_from_db_project(project_id):
                     MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
                     MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
                 FROM
-                    e2caf.Questions Q
+                    Questions Q
                 INNER JOIN
-                    e2caf.Capabilities C ON Q.capability_id = C.capability_id
+                    Capabilities C ON Q.capability_id = C.capability_id
                 INNER JOIN
-                    e2caf.Domain D ON C.domain_id = D.domain_id
+                    Domain D ON C.domain_id = D.domain_id
                 LEFT JOIN
-                    e2caf.Answers A ON A.question_id = Q.uid
+                    Answers A ON A.question_id = Q.uid
                 LEFT JOIN
-                    e2caf.CapabilityDetails CD ON C.capability_id = CD.capability_id
-                join e2caf.AssessmentProject AP ON A.project_id = AP.project_id
+                    CapabilityDetails CD ON C.capability_id = CD.capability_id
+                JOIN AssessmentProject AP ON A.project_id = AP.project_id
                 WHERE
                     Q.Level IN (1, 2) AND A.project_id = %s
                 GROUP BY
@@ -120,6 +120,7 @@ def ia_analysis(criteria, assessment, prompt):
         # print(response.choices[0].message.content.strip().lower())
         ai_analysis_response = response.choices[0].message.content.strip().lower()
         return ai_analysis_response
+
     except ImportError as e:
         print(f"An import error occurred: {str(e)} ")
         print(

@@ -76,8 +76,8 @@ if rows:
                 """
 
         alignment = ia_analysis(criteria, assessment, prompt)
-        alignment = clean_and_normalize_text(alignment)
-        alignment = to_sentence_case(alignment)
+        # alignment = clean_and_normalize_text(alignment)
+        # alignment = to_sentence_case(alignment)
 
         maturity_score = get_maturity_score(alignment)
         print(maturity_score)
