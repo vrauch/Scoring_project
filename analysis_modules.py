@@ -28,8 +28,8 @@ def load_from_db_project(project_id):
                     Q.Level as Level,
                     AP.project_name,
                     MAX(CASE WHEN Q.Level = 1 THEN A.openended_answer END) AS Assessment,
-                    MAX(CASE WHEN CD.level = 1 THEN CD.scoring_criteria_at_level END) AS Criteria1,
-                    MAX(CASE WHEN CD.level = 2 THEN CD.scoring_criteria_at_level END) AS Criteria2
+                    MAX(CASE WHEN CD.level = 1 THEN CD.capability_at_level END) AS Criteria1,
+                    MAX(CASE WHEN CD.level = 2 THEN CD.capability_at_level END) AS Criteria2
                 FROM
                     Questions Q
                 INNER JOIN
@@ -44,7 +44,7 @@ def load_from_db_project(project_id):
                 WHERE
                     Q.Level IN (1, 2) AND A.project_id = %s
                 GROUP BY
-                    D.domain_name, C.capability_name, C.capability_id, Q.Level;
+                    D.domain_name, C.capability_name, C.capability_id, Q.Level, AP.project_name;
             """
 
             # Log the query and the parameters being used
