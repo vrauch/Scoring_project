@@ -1,5 +1,6 @@
-import mysql.connector
 import logging
+import pymysql
+from pymysql.cursors import DictCursor
 
 # Database configuration
 db_config = {
@@ -11,7 +12,7 @@ db_config = {
 
 
 # Function to establish a database connection
-def get_db_connection():
+"""def get_db_connection():
     connection = None
     try:
         # Database connection using mysql.connector
@@ -25,24 +26,26 @@ def get_db_connection():
         raise
     finally:
         if connection is None or not connection.is_connected():
-            logging.error("Failed to establish database connection.")
+            logging.error("Failed to establish database connection.")"""
 
+def get_db_connection():
+    config = db_config
+    connection = pymysql.connect(
+        host=config['host'],
+        database=config['database'],
+        user=config['user'],
+        password=config['password'],
+        cursorclass=DictCursor # Use DictCursor to get dictionary results
+    )
+    return connection
 
 # Function to execute a query (for SELECT statements or others without commit)
 def execute_query(query, values=None):
     connection = get_db_connection()
     results = None
-    try:
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute(query, values if values else ())
-        results = cursor.fetchall()
-    except mysql.connector.Error as e:
-        logging.error(f"Error executing query: {e}")
-        raise
-    finally:
-        if connection and connection.is_connected():
-            cursor.close()
-            connection.close()  # Close the connection after query execution
+    cursor = connection.cursor()
+    cursor.execute(query, values if values else ())
+    results = cursor.fetchall()
     return results
 
 
@@ -60,12 +63,12 @@ def execute_query_commit(query, values=None, fetch_id=False):
             return last_id
 
         connection.commit()  # Commit changes if no errors
-    except mysql.connector.Error as e:
+    except pymysql.connect.Error as e:
         logging.error(f"Error during query execution with commit: {e}")
         connection.rollback()  # Rollback transaction if there's an error
         raise
     finally:
-        if connection and connection.is_connected():
+        if connection and connection:
             cursor.close()
             connection.close()
 

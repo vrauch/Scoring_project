@@ -67,41 +67,6 @@ def load_from_db_project(project_id):
             connection.close()
 
 
-def response_load(file_name):
-    import pandas as pd
-    df = pd.read_excel(file_name)
-    df['Domain'] = df['Domain']
-    df['Capability'] = df['Capability']
-    df['Level'] = df['Level']
-    # Normalize text data in specific columns
-    df['Assessment'] = df['Assessment'].apply(clean_and_normalize_text)
-    df['Criteria1'] = df['Criteria1']
-    df['Criteria2'] = df['Criteria2']
-    return df
-
-
-def domain_summary_load(file_name):
-    import pandas as pd
-    df = pd.read_csv(file_name)
-    df['Domain'] = df['Domain']
-    df['Alignment'] = df['Alignment'].apply(clean_and_normalize_text)
-
-    return df
-
-
-def question_dev(file_name):
-    import pandas as pd
-    df = pd.read_excel(file_name)
-    df['ID'] = df['ID']
-    df['Domain'] = df['Domain']
-    df['Level'] = df['Level']
-    df['Capability'] = df['Capability']
-    df['Cap_Level'] = df['Cap_Level']
-    df['Feature'] = df['Feature']
-    df['Objective'] = df['Objective']
-    return df
-
-
 def ia_analysis(criteria, assessment, prompt):
     try:
         import openai
@@ -157,6 +122,110 @@ def build_backlog(prompt, recommendation):
     except Exception as e:
         print(f"An error occurred: {str(e)} ")
         print("Please check your OpenAI library installation and usage.")
+
+
+def response_load(file_name):
+    import pandas as pd
+    df = pd.read_excel(file_name)
+    df['Domain'] = df['Domain']
+    df['Capability'] = df['Capability']
+    df['Level'] = df['Level']
+    # Normalize text data in specific columns
+    df['Assessment'] = df['Assessment'].apply(clean_and_normalize_text)
+    df['Criteria1'] = df['Criteria1']
+    df['Criteria2'] = df['Criteria2']
+    return df
+
+
+def get_maturity_score(text):
+    # Dictionary to map keywords to scores
+    scores = {"Strong": 1.0, "Moderate": 0.5, "Weak": 0.0}
+    # Look for any keyword in the text, return the associated score, or 0.0 if not found
+    return next((score for keyword, score in scores.items() if keyword in text), 0.0)
+
+
+def compute_cosine_similarity(criteria, text, tokenizer, model):
+    # Get embeddings for both texts
+    embedding1 = get_embedding(criteria, tokenizer, model).numpy().flatten()
+    embedding2 = get_embedding(text, tokenizer, model).numpy().flatten()
+
+    # Compute cosine similarity
+    score = 1 - cosine(embedding1, embedding2)
+    return score
+
+
+def save_analysis_result(project_id, capability_id, level, alignment, similarity_score, maturity_score,
+                         recommendations):
+    try:
+        # Setup MySQL connection
+        connection = get_db_connection()
+
+        # Check if the project_id and capability_id combination already exists
+        check_query = """
+            SELECT COUNT(*) FROM AnalysisResults 
+            WHERE project_id = %s AND capability_id = %s
+        """
+        result = execute_query(check_query, (project_id, capability_id))
+        if result[0]['COUNT(*)'] > 0:
+            print(
+                f"Record already exists for project ID {project_id} and capability ID {capability_id}. Skipping insert.")
+            return
+
+        # Prepare the SQL insert query
+        insert_query = """
+            INSERT INTO e2caf.AnalysisResults (
+                project_id,
+                capability_id,
+                level,
+                alignment,
+                similarity_score,
+                maturity_score,
+                recommendations,
+                created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """
+
+        # Execute the query with the provided data
+        execute_query_commit(insert_query, (
+            project_id,
+            capability_id,
+            level,
+            alignment,
+            similarity_score,
+            maturity_score,
+            recommendations,
+        ))
+
+        print(f"Analysis result saved successfully for project ID {project_id} and capability ID {capability_id}.")
+
+    except Error as e:
+        print(f"Error while saving analysis results: {e}")
+    finally:
+        # Close the cursor and connection
+        if connection.is_connected():
+            connection.close()
+
+
+def domain_summary_load(file_name):
+    import pandas as pd
+    df = pd.read_csv(file_name)
+    df['Domain'] = df['Domain']
+    df['Alignment'] = df['Alignment'].apply(clean_and_normalize_text)
+
+    return df
+
+
+def question_dev(file_name):
+    import pandas as pd
+    df = pd.read_excel(file_name)
+    df['ID'] = df['ID']
+    df['Domain'] = df['Domain']
+    df['Level'] = df['Level']
+    df['Capability'] = df['Capability']
+    df['Cap_Level'] = df['Cap_Level']
+    df['Feature'] = df['Feature']
+    df['Objective'] = df['Objective']
+    return df
 
 
 def question_response(capability, level, cap_level, feature, objective, prompt):
@@ -224,16 +293,6 @@ def get_embedding(text, tokenizer, model):
     return mean_pooled
 
 
-def compute_cosine_similarity(criteria, text, tokenizer, model):
-    # Get embeddings for both texts
-    embedding1 = get_embedding(criteria, tokenizer, model).numpy().flatten()
-    embedding2 = get_embedding(text, tokenizer, model).numpy().flatten()
-
-    # Compute cosine similarity
-    score = 1 - cosine(embedding1, embedding2)
-    return score
-
-
 def clean_and_normalize_text(text):
     if text is None:
         return None
@@ -271,62 +330,3 @@ def to_sentence_case(text):
     sentences = [sentence.capitalize() for sentence in sentences if sentence]
     # Rejoin the sentences
     return '. '.join(sentences)
-
-
-def get_maturity_score(text):
-    # Dictionary to map keywords to scores
-    scores = {"Strong": 1.0, "Moderate": 0.5, "Weak": 0.0}
-    # Look for any keyword in the text, return the associated score, or 0.0 if not found
-    return next((score for keyword, score in scores.items() if keyword in text), 0.0)
-
-
-def save_analysis_result(project_id, capability_id, level, alignment, similarity_score, maturity_score,
-                         recommendations):
-    try:
-        # Setup MySQL connection
-        connection = get_db_connection()
-
-        # Check if the project_id and capability_id combination already exists
-        check_query = """
-            SELECT COUNT(*) FROM AnalysisResults 
-            WHERE project_id = %s AND capability_id = %s
-        """
-        result = execute_query(check_query, (project_id, capability_id))
-        if result[0]['COUNT(*)'] > 0:
-            print(
-                f"Record already exists for project ID {project_id} and capability ID {capability_id}. Skipping insert.")
-            return
-
-        # Prepare the SQL insert query
-        insert_query = """
-            INSERT INTO e2caf.AnalysisResults (
-                project_id,
-                capability_id,
-                level,
-                alignment,
-                similarity_score,
-                maturity_score,
-                recommendations,
-                created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-        """
-
-        # Execute the query with the provided data
-        execute_query_commit(insert_query, (
-            project_id,
-            capability_id,
-            level,
-            alignment,
-            similarity_score,
-            maturity_score,
-            recommendations,
-        ))
-
-        print(f"Analysis result saved successfully for project ID {project_id} and capability ID {capability_id}.")
-
-    except Error as e:
-        print(f"Error while saving analysis results: {e}")
-    finally:
-        # Close the cursor and connection
-        if connection.is_connected():
-            connection.close()
