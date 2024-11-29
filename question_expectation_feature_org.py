@@ -41,6 +41,23 @@ def connect_to_db():
         logging.error(f"Error connecting to MySQL: {err}")
         raise
 
+
+def get_all_domain_ids():
+    query = "SELECT domain_id FROM domains"
+    connection = connect_to_db()
+    cursor = connection.cursor()
+    cursor.execute(query)
+    result = cursor.fetchall()
+    return result
+
+def get_all_levels():
+    query = "SELECT level FROM CapabilityDetails"
+    connection = connect_to_db()
+    cursor = connection.cursor()
+    cursor.execute(query)
+    result = cursor.fetchall()
+    return result
+
 def fetch_capabilities_data(domain_ids, levels, key_capability):
     query = """
     SELECT DISTINCT 
@@ -80,6 +97,63 @@ def fetch_capabilities_data(domain_ids, levels, key_capability):
         logging.error(f"Error executing query: {err}")
         raise
 
+def fetch_maturity_levels (domain_id, level):
+    query = """
+    select LevelDefinitions.level, LevelDefinitions.description
+        from LevelDefinitions
+        WHERE domain_id = %s AND level = %s;
+    """
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        # Execute query with parameters
+        cursor.execute(query, (domain_id, level))
+        result = cursor.fetchone()
+
+        return result
+    except pymysql.MySQLError as err:
+        logging.error(f"Error executing query: {err}")
+        raise
+
+def fetch_doman_description (domain_id):
+    query = """
+    Select domain_description
+        From Domain
+        WHERE domain_id = %s;
+    """
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        # Execute query with parameters
+        cursor.execute(query, (domain_id))
+        result = cursor.fetchone()
+
+
+        return result
+    except pymysql.MySQLError as err:
+        logging.error(f"Error executing query: {err}")
+        raise
+
+def fetch_capability_description (capability_id):
+    query = """
+    Select capability_description
+        From Capabilities
+        WHERE capability_id = %s;
+    """
+    try:
+        connection = connect_to_db()
+        cursor = connection.cursor()
+
+        # Execute query with parameters
+        cursor.execute(query, (capability_id))
+        result = cursor.fetchone()
+
+        return result
+    except pymysql.MySQLError as err:
+        logging.error(f"Error executing query: {err}")
+        raise
 # ---------------------------
 # User Input Collection
 # ---------------------------
