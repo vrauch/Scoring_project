@@ -13,7 +13,6 @@ from analysis_modules import (
 )
 import os
 import contextlib
-from docx import Document
 from docx.shared import Pt  # Import Pt for point size
 
 # model_name = "sentence-transformers/all-MiniLM-L6-v2"
