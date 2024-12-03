@@ -54,7 +54,8 @@ def fetch_capabilities_data(domain_ids, levels, key_capability):
     WHERE D.domain_id IN ({domain_placeholders}) 
       AND cd.level IN ({level_placeholders}) 
       AND cd.key_capability = %s
-    ORDER BY RAND(), D.domain_name, c.capability_id, cd.level;
+    ORDER BY RAND(), D.domain_name, c.capability_id, cd.level
+    Limit 5;
     """
     try:
         connection = connect_to_db()

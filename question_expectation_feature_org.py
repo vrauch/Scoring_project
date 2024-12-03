@@ -43,7 +43,7 @@ def connect_to_db():
 
 
 def get_all_domain_ids():
-    query = "SELECT domain_id FROM domains"
+    query = "SELECT domain_id FROM Domain"
     connection = connect_to_db()
     cursor = connection.cursor()
     cursor.execute(query)
