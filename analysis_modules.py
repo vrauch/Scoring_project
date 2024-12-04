@@ -1,5 +1,6 @@
-import mysql.connector
-from db_config import *
+# NEEDS ALOT OF WORK
+
+from helper_functions import error, openai, MySQLError, connect_to_db, info, warning, setup_logging, execute_query
 import logging
 from transformers import BertTokenizer, BertModel
 import torch
@@ -7,17 +8,17 @@ from scipy.spatial.distance import cosine
 import re
 import unicodedata
 import contractions
-from mysql.connector import Error
+from helper_functions import connect
 
 
 def load_from_db_project(project_id):
     try:
         # Setup MySQL connection
-        connection = get_db_connection()
+        connection = connect_to_db()
 
         # Check if the connection is established
-        if connection.is_connected():
-            cursor = connection.cursor(dictionary=True)
+        if connection.get_db_connection(connect):
+            cursor = connection.cursor()
 
             # SQL query to retrieve data
             select_query = """
@@ -58,7 +59,7 @@ def load_from_db_project(project_id):
                 logging.info(f"No rows returned for project ID {project_id}")
             return rows
 
-    except mysql.connector.Error as err:
+    except connection.Error as err:
         logging.error(f"Error executing query: {err}")
         return None
 
@@ -158,7 +159,7 @@ def save_analysis_result(project_id, capability_id, level, alignment, similarity
                          recommendations):
     try:
         # Setup MySQL connection
-        connection = get_db_connection()
+        connection = connect_to_db()
 
         # Check if the project_id and capability_id combination already exists
         check_query = """
@@ -186,7 +187,7 @@ def save_analysis_result(project_id, capability_id, level, alignment, similarity
         """
 
         # Execute the query with the provided data
-        execute_query_commit(insert_query, (
+        execute_query(insert_query, (
             project_id,
             capability_id,
             level,
@@ -198,7 +199,7 @@ def save_analysis_result(project_id, capability_id, level, alignment, similarity
 
         print(f"Analysis result saved successfully for project ID {project_id} and capability ID {capability_id}.")
 
-    except Error as e:
+    except connection.Error as e:
         print(f"Error while saving analysis results: {e}")
     finally:
         # Close the cursor and connection

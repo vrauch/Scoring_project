@@ -162,6 +162,7 @@ def fetch_capability_description():
     finally:
         connect.close(connect_to_db())
 
+#
 # ---------------------------
 # Prompt Generation
 # ---------------------------
@@ -170,8 +171,7 @@ def generate_prompt(domain, capability_id, capability, level, description, domai
         raise ValueError("All input variables must be provided and non-empty.")
 
     prompt = f"""
-You are an expert in organizational, IT, and cloud capability assessments. Your task is to generate a maturity assessment for a given capability and maturity level. Use the provided inputs and domain context to produce a structured output focusing solely on the specified capability and maturity level. Including sparingly industry- or country-specific references in the output.
-
+You are an expert in organizational, IT, and cloud capability assessments. Your task is to generate survey questions for a maturity assessment of a given capability and maturity level. Use the provided inputs and domain context to produce clear and actionable questions designed for organizational maturity evaluations. Each question must specify an appropriate response format to ensure structured and measurable feedback.
 Input Details:
     • Domain: {domain}
     • Capability ID: {capability_id}
@@ -182,27 +182,19 @@ Input Details:
     • Capability Description: {capability_description}
     • Industry: {industry}
     • Country: {country}
-
 Task Requirements:
-Generate a single-line output containing exactly 7 fields separated by a | delimiter. Each field must follow the order and formatting below:
-    1. Domain: The name of the domain.
-    2. Capability ID: The unique identifier for the capability.
-    3. Capability: The description or name of the capability.
-    4. Maturity Level: The specified maturity level.
-    5. Question: A strategic question designed to explore strategies or initiatives related to this capability and maturity level.
-    6. Expectation: What an organization at this maturity level is expected to demonstrate for the given capability.
-    7. Features: Specific indicators or attributes that validate the organization’s adherence to this maturity level.
-
-Output Format:
-The output must use the following structure, with fields separated by a | delimiter. Do not include headers or extra text in the output:
-Domain | Capability ID | Capability | Maturity Level | Question | Expectation | Features
-
+Generate a single structured survey question for the given capability and maturity level. For each question, include:
+	1.	Question: A clearly written, actionable survey question designed to assess the organization’s performance or alignment with the specified maturity level.
+	2.	Response Format: Specify an appropriate format for collecting responses (e.g., Likert scale, multiple-choice, open-ended, or checkbox).
 Guidelines:
-    • The Question must align with the provided {domain_description} and {capability_description} and be tailored to the context of {industry} and {country}, but not include them directly in the question.
-    • The Expectation must reflect traits or actions expected at the given maturity level while incorporating nuances relevant to the industry and country.
-    • The Features must include concise, specific indicators or attributes that demonstrate compliance with the stated expectation in the industry and country context.
-    • Ensure the response adheres to the given input data and avoids unnecessary or generic outputs.
-
+    •	Generate exactly one set of structured survey questions for the given inputs. The output must not contain multiple sets or additional explanatory text.
+    •	The question must align with the provided {domain_description} and {capability_description}.
+    •	Relevance: Tailor questions to the {domain_description}, {capability_description}, ensuring they reflect the context of the {industry} and {country} sparingly without being overly specific.
+	•	Questions must be tailored to the {industry} and {country} context sparingly, without overly specific references.
+	•	Clarity and Simplicity: Avoid jargon, technical terms, or overly complex phrasing. Each question must be easily understandable without requiring additional context.
+	•	Focus on a Single Topic: Each question should address one specific aspect of the capability or maturity level to prevent confusion. Avoid combining multiple concepts in one question.
+	•	Neutrality: Questions must avoid leading language or assumptions that could bias the respondent’s answer.
+	•	Measurability: Frame questions to elicit measurable responses, ensuring clear alignment with the response format (e.g., Likert scale, multiple-choice).
 Example Input:
     • Domain: Cloud Operations
     • Domain Description: The management and optimization of cloud-based environments to ensure scalability, reliability, and efficiency.
@@ -213,12 +205,15 @@ Example Input:
     • Maturity Level Description: Proactive monitoring with root-cause analysis and automation.
     • Industry: Financial Services
     • Country: Germany
-
+Output Format:
+Ensure that the response contains exactly 8 fields separated by "|".
+The output must use the following structure, with fields separated by a | delimiter. Do not include headers or extra text in the output:
+Domain | Capability ID | Capability | Maturity Level | Question | Response Format | Expectation | Features
+For each question, provide:
+	1.	Question: (e.g., How effectively does your organization implement proactive monitoring and root-cause analysis to reduce cloud incidents?)
+	2.	Response Format: (e.g., Likert scale: Not Effective, Slightly Effective, Moderately Effective, Very Effective, Extremely Effective)
 Example Output:
-    Cloud Operations | CO-01 | Incident Management | 3 | How does the organization in Germany's financial services sector utilize proactive monitoring and automation to reduce incidents? | Organizations at this maturity level in the financial services sector in Germany should demonstrate automated root-cause analysis and resolution processes. | Proactive incident detection, automation frameworks, and root-cause analysis dashboards tailored for regulatory compliance in Germany.
-
-If any input is missing or unclear, return:
-"Insufficient information to generate output."
+    Cloud Operations | CO-01 | Incident Management | 3 | How effectively does your organization implement proactive monitoring and root-cause analysis to reduce cloud incidents? | Likert scale: Not Effective, Slightly Effective, Moderately Effective, Very Effective, Extremely Effective | Organizations at this maturity level in the financial services sector in Germany should demonstrate automated root-cause analysis and resolution processes. | Proactive incident detection, automation frameworks, and root-cause analysis dashboards tailored for regulatory compliance in Germany.
 """
     return prompt
 
@@ -233,11 +228,11 @@ def write_output_to_text(output_rows, output_file):
     try:
         with open(output_file, 'w') as file:
             # Write a header line with pipe delimiter
-            file.write("Domain|Capability ID|Capability|Level|Question|Expectation|Features\n")
+            file.write("Domain|Capability ID|Capability|Level|Question|Response Format|Expectation|Features\n")
 
             # Write each row to the file
             for row in output_rows:
-                line = f"{row['Domain']}|{row['Capability ID']}|{row['Capability']}|{row['Level']}|{row['Question']}|{row['Expectation']}|{row['Features']}\n"
+                line = f"{row['Domain']}|{row['Capability ID']}|{row['Capability']}|{row['Level']}|{row['Question']}|{row['Response_Format']}|{row['Expectation']}|{row['Features']}\n"
                 file.write(line)
 
         info(f"Output written to {output_file}")
@@ -325,37 +320,40 @@ def main():
                     model="gpt-4",
                     messages=[
                         {"role": "system",
-                         "content": "You are an expert in generating maturity assessments for organizational capabilities."},
+                         "content": "You are an expert in generating surveys for maturity assessments for organizational capabilities."},
                         {"role": "user", "content": prompt}
                     ],
-                    temperature=0.8,
-                    max_tokens=2048
+                    temperature=0.2,
+                    max_tokens=2000
                 )
                 info(f"API response: {response}")
 
                 # Process API response
                 generated_text = response.choices[0].message.content.strip()
                 generated_text = re.sub(r'\s*\|\s*', '|', generated_text)  # Normalize spaces around delimiters
-                parts = [part.strip() for part in generated_text.split('|')]  # Split and trim parts
+                responses = generated_text.strip().split("\n\n")  # Split into individual responses
 
-                # Debugging: Log split parts and their count
-                info(f"Generated Text: {generated_text}")
-                info(f"Split Parts: {parts}")
-                info(f"Number of Parts: {len(parts)}")
+                for response in responses:
+                    parts = [part.strip() for part in generated_text.split('|')]  # Split and trim parts
+                    # Debugging: Log split parts and their count
+                    info(f"Generated Text: {generated_text}")
+                    info(f"Split Parts: {parts}")
+                    info(f"Number of Parts: {len(parts)}")
 
-                if len(parts) == 7:
-                    output_rows.append({
-                        'Domain': parts[0],
-                        'Capability ID': parts[1],
-                        'Capability': parts[2],
-                        'Level': parts[3],
-                        'Question': parts[4],
-                        'Expectation': parts[5],
-                        'Features': parts[6],
-                    })
-                else:
-                    warning(f"Unexpected response format: Expected 7 parts, got {len(parts)}.\nResponse: {generated_text}")
-
+                    if len(parts) == 8:
+                        output_rows.append({
+                            'Domain': parts[0],
+                            'Capability ID': parts[1],
+                            'Capability': parts[2],
+                            'Level': parts[3],
+                            'Question': parts[4],
+                            'Response_Format': parts[5],
+                            'Expectation': parts[6],
+                            'Features': parts[7]
+                        })
+                    else:
+                        warning(
+                            f"Unexpected response format: Expected 8 parts, got {len(parts)}.\nResponse: {generated_text}")
             except Exception as e:
                 error(f"Error processing row: {row.to_dict()}. Exception: {e}")
                 continue
@@ -367,7 +365,7 @@ def main():
             info(f"Number of rows added to output_rows: {len(output_rows)}")
 
         # Write output to text file
-        output_file = 'output/questions-expectations-features.txt'
+        output_file = 'output/survey_questions-expectations-features.txt'
         write_output_to_text(output_rows, output_file)
         print(f"Questions written to {output_file}")
 
