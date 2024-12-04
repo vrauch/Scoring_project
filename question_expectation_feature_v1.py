@@ -1,44 +1,13 @@
-import openai
-import pymysql
+# ---------------------------
+# Script to define Questions , Expectations at level and Features at level based on
+# Domain, Capability and Level definitions. Current output to txt file delimited by "|"
+# ---------------------------
 import pandas as pd
-import logging
-from packaging import version
-import os
+from pymysql import connect
 from tqdm import tqdm
 import time
-
-# ---------------------------
-# Configuration Setup
-# ---------------------------
-def setup_logging():
-    logging.basicConfig(
-        filename='maturity_assessment_errors.log',
-        level=logging.DEBUG,
-        format='%(asctime)s:%(levelname)s:%(message)s'
-    )
-
-def setup_openai_api():
-    openai.api_key = os.getenv('OPENAI_API_KEY')
-    openai_version = openai.__version__
-    response_access_method = "attribute" if version.parse(openai_version) >= version.parse("0.27.0") else "dictionary"
-    return response_access_method
-
-# ---------------------------
-# Database Connection
-# ---------------------------
-def connect_to_db():
-    try:
-        connection = pymysql.connect(
-            host="localhost",
-            user="root",
-            password="root",
-            database="e2caf",
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        return connection
-    except pymysql.MySQLError as err:
-        logging.error(f"Error connecting to MySQL: {err}")
-        raise
+# import helper_functions
+from helper_functions import error, openai, MySQLError, connect_to_db, info, warning, setup_logging, execute_query
 
 # ---------------------------
 # Fetch Data Functions
@@ -50,15 +19,16 @@ def fetch_capabilities_data(domain_ids, levels, key_capability):
     FROM e2caf.Domain D
     JOIN e2caf.Capabilities c ON D.domain_id = c.domain_id
     JOIN e2caf.CapabilityDetails cd ON c.capability_id = cd.capability_id
-    JOIN e2caf.InitiativeCardsDetails id ON D.domain_id = id.domain_id AND c.capability_id = id.capability_id
+    JOIN e2caf.DigitalImperativesDetails id ON D.domain_id = id.domain_id AND c.capability_id = id.capability_id
     WHERE D.domain_id IN ({domain_placeholders}) 
       AND cd.level IN ({level_placeholders}) 
       AND cd.key_capability = %s
-    ORDER BY RAND(), D.domain_name, c.capability_id, cd.level;
+    ORDER BY RAND(), D.domain_name, c.capability_id, cd.level
+    limit 3;
     """
     try:
-        connection = connect_to_db()
-        with connection.cursor() as cursor:
+        with connect_to_db() as cursor:
+
             # Dynamically create placeholders for the WHERE clause
             domain_placeholders = ', '.join(['%s'] * len(domain_ids))
             level_placeholders = ', '.join(['%s'] * len(levels))
@@ -68,59 +38,64 @@ def fetch_capabilities_data(domain_ids, levels, key_capability):
             )
 
             # Execute query with parameters
-            cursor.execute(query, (*domain_ids, *levels, key_capability))
-            rows = cursor.fetchall()
+            rows = execute_query(query, (*domain_ids, *levels, key_capability))
 
             # Convert to DataFrame
             return pd.DataFrame(rows)
-    except pymysql.MySQLError as err:
-        logging.error(f"Error executing query: {err}")
+    except MySQLError as err:
+        error(f"Error executing query: {err}")
         raise
     finally:
-        connection.close()
+        connect.close(connect_to_db())
 
-def fetch_maturity_levels(domain_id, level):
+def fetch_all_maturity_levels():
     query = """
-    SELECT LevelDefinitions.level, LevelDefinitions.description
-    FROM LevelDefinitions
-    WHERE domain_id = %s AND level = %s;
+    SELECT domain_id, level, description
+    FROM LevelDefinitions;
     """
     try:
-        connection = connect_to_db()
-        with connection.cursor() as cursor:
-            cursor.execute(query, (domain_id, level))
-            return cursor.fetchone()
-    except pymysql.MySQLError as err:
-        logging.error(f"Error executing query: {err}")
+        with connect.cursor(connect_to_db()) as cursor:
+            cursor.execute(query)
+            results = cursor.fetchall()
+            # Create a dictionary for quick lookup
+            return {(row['domain_id'], row['level']): row['description'] for row in results}
+    except MySQLError as err:
+        error(f"Error executing query: {err}")
         raise
     finally:
-        connection.close()
+        connect.close(connect_to_db())
 
-def fetch_domain_description(domain_id):
-    query = "SELECT domain_description FROM Domain WHERE domain_id = %s;"
+def fetch_all_domain_descriptions():
+    query = "SELECT domain_id, domain_description FROM Domain;"
     try:
-        connection = connect_to_db()
-        with connection.cursor() as cursor:
-            cursor.execute(query, (domain_id,))
-            return cursor.fetchone()
-    except pymysql.MySQLError as err:
-        logging.error(f"Error executing query: {err}")
+        with connect.cursor(connect_to_db()) as cursor:
+            cursor.execute(query)
+            results = cursor.fetchall()
+            # Create a dictionary for quick lookup
+            return {row['domain_id']: row['domain_description'] for row in results}
+    except MySQLError as err:
+        error(f"Error executing query: {err}")
         raise
     finally:
-        connection.close()
+        connect.close(connect_to_db())
 
-def fetch_capability_description(capability_id):
-    query = "SELECT capability_description FROM Capabilities WHERE capability_id = %s;"
+def fetch_capability_description():
+    query = "SELECT capability_description FROM Capabilities"
     try:
-        connection = connect_to_db()
-        with connection.cursor() as cursor:
-            cursor.execute(query, (capability_id,))
-            return cursor.fetchone()
-    except pymysql.MySQLError as err:
-        logging.error(f"Error executing query: {err}")
+        with connect.cursor(connect_to_db()) as cursor:
+            cursor.execute(query)
+            result = cursor.fetchone()
+
+            if not result:  # Check if the query returned no rows
+                warning(f"No capability descriptions found")
+                return {"capability_description": "No description available"}  # Return a default value
+
+            return result  # Return the fetched row
+    except MySQLError as err:
+        error(f"Error executing query for capability: {err}")
         raise
     finally:
-        connection.close()
+        connect.close(connect_to_db())
 
 # ---------------------------
 # User Input Collection
@@ -134,54 +109,69 @@ def get_user_inputs(db_connection):
     if choice not in ["1", "2"]:
         raise ValueError("Invalid choice. Please select either 1 or 2.")
 
-    if choice == "1":
-        industry = input("Enter the industry: ").strip()
-        country = input("Enter the country: ").strip()
+    # Shared inputs
+    industry = input("Enter the industry: ").strip()
+    country = input("Enter the country: ").strip()
+    levels = [int(x) for x in input("Enter levels (comma-separated): ").split(",")]
+
+    if choice == "1":  # Manual Input
         domain_ids = [int(x) for x in input("Enter domain IDs (comma-separated): ").split(",")]
-        levels = [int(x) for x in input("Enter levels (comma-separated): ").split(",")]
         key_capability = input("Enter key capability (Yes/No): ").strip().capitalize() or "Yes"
-        return industry, country, domain_ids, levels, key_capability
 
+        # Create combinations of domain_id and levels
+        data = []
+        for domain_id in domain_ids:
+            for level in levels:
+                data.append({
+                    'domain_id': domain_id,
+                    'level': level,
+                    'key_capability': key_capability,
+                    'Industry': industry,
+                    'Country': country
+                })
 
-    elif choice == "2":
+        info(f"Generated DataFrame for manual input: {data}")
+        return pd.DataFrame(data)
+
+    elif choice == "2":  # Database Selection
         with db_connection.cursor() as cursor:
-
-            # Retrieve Digital Initiatives
             cursor.execute("SELECT id, di_name FROM DigitalImperatives")
             initiatives = cursor.fetchall()
             if not initiatives:
                 raise ValueError("No digital initiatives found.")
-            print("Available Digital Initiatives:")
 
+            print("Available Digital Initiatives:")
             for idx, initiative in enumerate(initiatives, start=1):
                 print(f"{idx}) {initiative['di_name']}")
 
-            # User selects an initiative
             selection = int(input("Select a number: "))
+            if selection < 1 or selection > len(initiatives):
+                raise ValueError("Invalid selection.")
+
             selected_initiative = initiatives[selection - 1]
             initiative_id = selected_initiative['id']
 
-            # Retrieve domain_id and capability_id from DigitalImperativeDetails
             cursor.execute(
                 """
                 SELECT domain_id, capability_id
-                FROM InitiativeCardsDetails
-                WHERE i_card_id = %s
+                FROM DigitalImperativesDetails
+                WHERE di_id = %s
                 """,
                 (initiative_id,)
             )
-
             details = cursor.fetchall()
             if not details:
                 raise ValueError("No details found for the selected initiative.")
 
-            # Extract domain_ids, capability_ids, and levels
             domain_ids = [detail['domain_id'] for detail in details]
-            capability_ids = [detail['capability_id'] for detail in details]
-            levels = list(set(detail['assessment_level'] for detail in details))  # Get unique levels
 
-            # Return the selected initiative name, and details
-            return selected_initiative['di_name'], "Unknown Country", domain_ids, capability_ids, levels, "Yes"
+            capabilities_df = fetch_capabilities_data(domain_ids, levels, 'Yes')
+            capabilities_df['Industry'] = [industry] * len(capabilities_df)
+            capabilities_df['Country'] = [country] * len(capabilities_df)
+
+            info(f"Generated DataFrame for database selection: {capabilities_df}")
+            return capabilities_df
+
 # ---------------------------
 # Prompt Generation
 # ---------------------------
@@ -247,7 +237,7 @@ If any input is missing or unclear, return:
 # ---------------------------
 def write_output_to_text(output_rows, output_file):
     if not output_rows:
-        logging.warning("No output rows to write.")
+        warning("No output rows to write.")
         return
 
     try:
@@ -260,21 +250,34 @@ def write_output_to_text(output_rows, output_file):
                 line = f"{row['Domain']}|{row['Capability ID']}|{row['Capability']}|{row['Level']}|{row['Question']}|{row['Expectation']}|{row['Features']}\n"
                 file.write(line)
 
-        logging.info(f"Output written to {output_file}")
+        info(f"Output written to {output_file}")
     except Exception as e:
-        logging.error(f"Failed to write output file: {e}")
+        error(f"Failed to write output file: {e}")
 
 # ---------------------------
 # Main Function
 # ---------------------------
 def main():
     setup_logging()
-    response_access_method = setup_openai_api()
+    # response_access_method = helper_functions.setup_openai_api()
 
-    db_connection = connect_to_db()
     try:
         # Collect inputs
-        industry, country, domain_ids, levels, key_capability = get_user_inputs(db_connection)
+        capabilities_df = get_user_inputs(connect_to_db())
+
+        # Debugging: Log capabilities_df structure
+        info(f"Capabilities DataFrame columns: {capabilities_df.columns}")
+        info(f"Capabilities DataFrame head: \n{capabilities_df.values.tolist()}")
+
+        # Ensure domain_id exists
+        if 'domain_id' not in capabilities_df.columns or 'level' not in capabilities_df.columns:
+            raise ValueError("Missing 'domain_id' or 'level' column in capabilities_df.")
+
+        # Extract inputs
+        domain_ids = list(capabilities_df['domain_id'].unique())  # Ensure domain_ids is always a list
+        levels = list(capabilities_df['level'].unique())  # Ensure levels is always a list
+        industry = capabilities_df['Industry'].iloc[0]
+        country = capabilities_df['Country'].iloc[0]
 
         # Fetch data for both key_capability values ('Yes' and 'No')
         capabilities_df_yes = fetch_capabilities_data(domain_ids, levels, 'Yes')
@@ -283,35 +286,62 @@ def main():
         # Combine both datasets
         capabilities_df = pd.concat([capabilities_df_yes, capabilities_df_no])
 
+        # Add Industry and Country to the combined DataFrame
+        capabilities_df['Industry'] = industry
+        capabilities_df['Country'] = country
+
+        # Pre-fetch maturity levels and domain descriptions
+        maturity_levels = fetch_all_maturity_levels()
+        domain_descriptions = fetch_all_domain_descriptions()
+        capability_descriptions = fetch_capability_description()
+
+        # Validate required columns
+        required_columns = ['domain_id', 'domain_name', 'capability_id', 'capability_name', 'level', 'Industry', 'Country']
+        missing_columns = [col for col in required_columns if col not in capabilities_df.columns]
+        if missing_columns:
+            error(f"Missing required columns in capabilities_df: {missing_columns}")
+            raise ValueError(f"Missing required columns in capabilities_df: {missing_columns}")
+
+        info(f"capabilities_df columns: {capabilities_df.columns}")
+        info(f"capabilities_df head: {capabilities_df.head()}")
+
         # Process each capability-level combination
         output_rows = []
         for _, row in tqdm(capabilities_df.iterrows(), total=len(capabilities_df), desc="Processing rows"):
-            domain_id = row['domain_id']
-            domain = row['domain_name']
-            capability_id = row['capability_id']
-            capability = row['capability_name']
-            level = row['level']
-            capability_description = row['capability_description']
-            description = fetch_maturity_levels(domain_id, level)
-            domain_description = fetch_domain_description(domain_id)
-
-            # Generate prompt
-            prompt = generate_prompt(
-                domain, capability_id, capability, level, description,
-                domain_description, capability_description, industry, country
-            )
-
-            # Call OpenAI API
             try:
+                info(f"Processing row: {row.to_dict()}")
+
+                # Fetch or look up capability description
+                capability_description = capability_descriptions.get(row['capability_id'], "No description available")
+
+                # Generate the prompt
+                prompt = generate_prompt(
+                    domain=row['domain_name'],
+                    capability_id=row['capability_id'],
+                    capability=row['capability_name'],
+                    level=row['level'],
+                    description=maturity_levels.get((row['domain_id'], row['level']), "No description available"),
+                    domain_description=domain_descriptions.get(row['domain_id'], "No description available"),
+                    capability_description=capability_description,
+                    industry=row['Industry'],
+                    country=row['Country']
+                )
+                info(f"Generated prompt: {prompt}")
+
+                # Call OpenAI API
                 response = openai.ChatCompletion.create(
                     model="gpt-4",
                     messages=[
-                        {"role": "system", "content": "You are an expert in generating maturity assessments for organizational capabilities."},
+                        {"role": "system",
+                         "content": "You are an expert in generating maturity assessments for organizational capabilities."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.8,
                     max_tokens=200
                 )
+                info(f"API response: {response}")
+
+                # Process API response
                 generated_text = response.choices[0].message.content.strip()
                 parts = generated_text.split('|')
                 if len(parts) == 7:
@@ -324,20 +354,29 @@ def main():
                         'Expectation': parts[5],
                         'Features': parts[6]
                     })
+                else:
+                    warning(f"Unexpected response format for prompt: {prompt}")
+
             except Exception as e:
-                logging.error(f"Error processing Capability ID {capability_id}, Level {level}: {e}")
+                error(f"Error processing row: {row.to_dict()}. Exception: {e}")
                 continue
 
-            # Add a short pause to avoid rate limiting
-            time.sleep(1)
+        # Log output_rows
+        if not output_rows:
+            warning("No rows added to output_rows.")
+        else:
+            info(f"Number of rows added to output_rows: {len(output_rows)}")
 
         # Write output to text file
         output_file = 'output/questions-expectations-features.txt'
         write_output_to_text(output_rows, output_file)
         print(f"Questions written to {output_file}")
 
+
+        time.sleep (1)
+
     finally:
-        db_connection.close()
+        connect_to_db().close()
 
 if __name__ == "__main__":
     main()
