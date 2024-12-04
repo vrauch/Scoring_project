@@ -17,7 +17,7 @@ def main():
 
         if choice == "1":
             print("Running Develop Question Set script...")
-            subprocess.run(["python", "question_expectation_feature.py"])  # Replace with actual script path
+            subprocess.run(["python", "question_expectation_feature_v1.py"])  # Replace with actual script path
         elif choice == "2":
             print("Running Perform Analysis script...")
             subprocess.run(["python", "perform_analysis.py"])  # Replace with actual script path
