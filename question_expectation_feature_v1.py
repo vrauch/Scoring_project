@@ -99,7 +99,7 @@ def fetch_capabilities_data(domain_ids, levels, key_capability):
       AND cd.level IN ({}) 
       AND cd.key_capability = %s
     ORDER BY RAND(), D.domain_name, c.capability_id, cd.level
-    LIMIT 2;
+    LIMIT 5;
     """.format(', '.join(['%s'] * len(domain_ids)), ', '.join(['%s'] * len(levels)))
     try:
         with connect_to_db() as cursor:
