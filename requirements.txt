@@ -12,3 +12,4 @@ tiktoken==0.7.0
 torch==2.2.1
 transformers==4.45.2
 contractions~=0.1.73
+cryptography

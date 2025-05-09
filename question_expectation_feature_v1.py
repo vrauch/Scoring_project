@@ -4,11 +4,13 @@
 # ---------------------------
 import pandas as pd
 from pymysql import connect
+from sympy.physics.units import temperature
 from tqdm import tqdm
 import time
 import re
 # import helper_functions
 from helper_functions import error, openai, MySQLError, connect_to_db, info, warning, setup_logging, execute_query
+import Open_AI_Call
 
 
 # ---------------------------
@@ -171,7 +173,6 @@ def generate_prompt(domain, capability_id, capability, level, description, domai
 
     prompt = f"""
 You are an expert in organizational, IT, and cloud capability assessments. Your task is to generate a maturity assessment for a given capability and maturity level. Use the provided inputs and domain context to produce a structured output focusing solely on the specified capability and maturity level. Including sparingly industry- or country-specific references in the output.
-
 Input Details:
     • Domain: {domain}
     • Capability ID: {capability_id}
@@ -192,17 +193,11 @@ Generate a single-line output containing exactly 7 fields separated by a | delim
     5. Question: A strategic question designed to explore strategies or initiatives related to this capability and maturity level.
     6. Expectation: What an organization at this maturity level is expected to demonstrate for the given capability.
     7. Features: Specific indicators or attributes that validate the organization’s adherence to this maturity level.
-
-Output Format:
-The output must use the following structure, with fields separated by a | delimiter. Do not include headers or extra text in the output:
-Domain | Capability ID | Capability | Maturity Level | Question | Expectation | Features
-
 Guidelines:
     • The Question must align with the provided {domain_description} and {capability_description} and be tailored to the context of {industry} and {country}, but not include them directly in the question.
     • The Expectation must reflect traits or actions expected at the given maturity level while incorporating nuances relevant to the industry and country.
     • The Features must include concise, specific indicators or attributes that demonstrate compliance with the stated expectation in the industry and country context.
     • Ensure the response adheres to the given input data and avoids unnecessary or generic outputs.
-
 Example Input:
     • Domain: Cloud Operations
     • Domain Description: The management and optimization of cloud-based environments to ensure scalability, reliability, and efficiency.
@@ -213,12 +208,12 @@ Example Input:
     • Maturity Level Description: Proactive monitoring with root-cause analysis and automation.
     • Industry: Financial Services
     • Country: Germany
-
+Output Format:
+Ensure that the response contains exactly 7 fields separated by "|".
+The output must use the following structure, with fields separated by a | delimiter. Do not include headers or extra text in the output:
+Domain | Capability ID | Capability | Maturity Level | Question | Expectation | Features
 Example Output:
     Cloud Operations | CO-01 | Incident Management | 3 | How does the organization in Germany's financial services sector utilize proactive monitoring and automation to reduce incidents? | Organizations at this maturity level in the financial services sector in Germany should demonstrate automated root-cause analysis and resolution processes. | Proactive incident detection, automation frameworks, and root-cause analysis dashboards tailored for regulatory compliance in Germany.
-
-If any input is missing or unclear, return:
-"Insufficient information to generate output."
 """
     return prompt
 
@@ -319,43 +314,42 @@ def main():
                     country=row['Country']
                 )
                 info(f"Generated prompt: {prompt}")
+                model = "gpt-4o"
+                temperature = 0.5
+                max_tokens = 2048
 
-                # Call OpenAI API
-                response = openai.ChatCompletion.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "system",
-                         "content": "You are an expert in generating maturity assessments for organizational capabilities."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.8,
-                    max_tokens=2048
-                )
-                info(f"API response: {response}")
+                response = Open_AI_Call.ai_call(prompt, model, temperature,max_tokens)
+
+                if response:
+                    info(f"Received response: {response}")
+                else:
+                    error("No response received from Open_AI_Call.ai_call")
 
                 # Process API response
                 generated_text = response.choices[0].message.content.strip()
                 generated_text = re.sub(r'\s*\|\s*', '|', generated_text)  # Normalize spaces around delimiters
-                parts = [part.strip() for part in generated_text.split('|')]  # Split and trim parts
+                responses = generated_text.strip().split("\n\n")  # Split into individual responses
 
-                # Debugging: Log split parts and their count
-                info(f"Generated Text: {generated_text}")
-                info(f"Split Parts: {parts}")
-                info(f"Number of Parts: {len(parts)}")
+                for response in responses:
+                    parts = [part.strip() for part in generated_text.split('|')]  # Split and trim parts
+                    # Debugging: Log split parts and their count
+                    info(f"Generated Text: {generated_text}")
+                    info(f"Split Parts: {parts}")
+                    info(f"Number of Parts: {len(parts)}")
 
-                if len(parts) == 7:
-                    output_rows.append({
-                        'Domain': parts[0],
-                        'Capability ID': parts[1],
-                        'Capability': parts[2],
-                        'Level': parts[3],
-                        'Question': parts[4],
-                        'Expectation': parts[5],
-                        'Features': parts[6],
-                    })
-                else:
-                    warning(f"Unexpected response format: Expected 7 parts, got {len(parts)}.\nResponse: {generated_text}")
-
+                    if len(parts) == 7:
+                        output_rows.append({
+                            'Domain': parts[0],
+                            'Capability ID': parts[1],
+                            'Capability': parts[2],
+                            'Level': parts[3],
+                            'Question': parts[4],
+                            'Expectation': parts[5],
+                            'Features': parts[6],
+                        })
+                    else:
+                        warning(
+                            f"Unexpected response format: Expected 7 parts, got {len(parts)}.\nResponse: {generated_text}")
             except Exception as e:
                 error(f"Error processing row: {row.to_dict()}. Exception: {e}")
                 continue

@@ -9,6 +9,7 @@ import time
 import re
 # import helper_functions
 from helper_functions import error, openai, MySQLError, connect_to_db, info, warning, setup_logging, execute_query
+import Open_AI_Call
 
 
 # ---------------------------
@@ -182,12 +183,13 @@ Input Details:
     • Capability Description: {capability_description}
     • Industry: {industry}
     • Country: {country}
+
 Task Requirements:
 Generate a single structured survey question for the given capability and maturity level. For each question, include:
 	1.	Question: A clearly written, actionable survey question designed to assess the organization’s performance or alignment with the specified maturity level.
 	2.	Response Format: Specify an appropriate format for collecting responses (e.g., Likert scale, multiple-choice, open-ended, or checkbox).
 Guidelines:
-    •	Generate exactly one set of structured survey questions for the given inputs. The output must not contain multiple sets or additional explanatory text.
+    •	Generate exactly one structured survey questions for the given inputs. The output must not contain multiple sets or additional explanatory text.
     •	The question must align with the provided {domain_description} and {capability_description}.
     •	Relevance: Tailor questions to the {domain_description}, {capability_description}, ensuring they reflect the context of the {industry} and {country} sparingly without being overly specific.
 	•	Questions must be tailored to the {industry} and {country} context sparingly, without overly specific references.
@@ -314,20 +316,31 @@ def main():
                     country=row['Country']
                 )
                 info(f"Generated prompt: {prompt}")
+                model = "gpt-4"
+                temperature = 0.2
+                max_tokens = 2048
 
-                # Call OpenAI API
+                # Make the API call
+                response = Open_AI_Call.ai_call(
+                    prompt=prompt,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+
+                """# Call OpenAI API
                 response = openai.ChatCompletion.create(
                     model="gpt-4",
                     messages=[
                         {"role": "system",
-                         "content": "You are an expert in generating surveys for maturity assessments for organizational capabilities."},
+                         "content": "You are an expert in generating maturity assessments for organizational capabilities."},
                         {"role": "user", "content": prompt}
                     ],
                     temperature=0.2,
                     max_tokens=2000
                 )
                 info(f"API response: {response}")
-
+"""
                 # Process API response
                 generated_text = response.choices[0].message.content.strip()
                 generated_text = re.sub(r'\s*\|\s*', '|', generated_text)  # Normalize spaces around delimiters
